@@ -51,15 +51,6 @@ export default function App() {
     copyright: '© 云浠（温州）包装有限公司 版权所有',
   });
 
-  const defaultCatalog = {
-    categories: [{ name: "3D滴胶贴纸" }, { name: "不干胶标签" }, { name: "纸袋、包装盒定制" }],
-    products: [
-      { id: 1, title: "CY CA-1518 定制3D打印环氧树脂防水PET材料手机贴纸流行吻切式包装标签", category: "3D滴胶贴纸", price: "US$0.20-0.23", img: "https://s.alicdn.com/@sc04/kf/H1e4ecf49828942c8aeee85fe6cb532ef1/CY-CA-1518-3D-PET-.jpg?hasNWGrade=1", moq: "3000 pieces", status: "active" },
-      { id: 2, title: "批发CY品牌CA-1513型号定制印刷徽标设计3D防水礼品工艺手机壳贴纸A6尺寸PET环氧树脂", category: "3D滴胶贴纸", price: "US$0.20-0.30", img: "https://s.alicdn.com/@sc04/kf/Hb1630189e9a44b0db57da0c63bc03f0fs/-CY-CA-1513-3D-A6-PET.jpg?hasNWGrade=1", moq: "3000 pieces", status: "active" },
-      { id: 3, title: "定制 A6 尺寸 3D 圆顶凝胶水晶徽标贴纸 UV 印刷防水 UV 装饰手机后盖礼品及工艺品", category: "不干胶标签", price: "US$0.18-0.28", img: "https://s.alicdn.com/@sc04/kf/H9639f9cf7f0b4c418df3e5750eace15fU/-A6-3D-UV-UV-.jpg?hasNWGrade=1", moq: "3000 pieces", status: "active" },
-    ],
-  };
-
   const handleProductClick = (product: any) => {
     setSelectedProduct(product);
     setCurrentPage("detail");
@@ -72,7 +63,7 @@ export default function App() {
 
   useEffect(() => {
     const base = (import.meta.env.VITE_ADMIN_API_BASE || '').replace(/\/$/, '');
-    const candidates = base ? [base] : ['', 'http://localhost:3000'];
+    const candidates = base ? [base] : ['http://localhost:3000'];
 
     (async () => {
       for (const candidate of candidates) {
@@ -89,16 +80,15 @@ export default function App() {
         } catch {}
       }
 
-      const fallbackCategories = ["全部", ...defaultCatalog.categories.map((item: any) => item.name)];
-      setCategories(fallbackCategories);
-      setProducts(defaultCatalog.products);
+      setCategories(["全部"]);
+      setProducts([]);
     })();
   }, []);
 
 
   useEffect(() => {
     const base = (import.meta.env.VITE_ADMIN_API_BASE || '').replace(/\/$/, '');
-    const candidates = base ? [base] : ['', 'http://localhost:3000'];
+    const candidates = base ? [base] : ['http://localhost:3000'];
 
     (async () => {
       for (const candidate of candidates) {
@@ -368,6 +358,9 @@ export default function App() {
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-8">
+            {filteredProducts.length === 0 && (
+              <div className="col-span-full text-center py-16 text-gray-400">暂无产品数据，请在后台（3000端口）维护并发布产品。</div>
+            )}
             {filteredProducts.map((product) => (
               <motion.div 
                 layout

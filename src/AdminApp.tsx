@@ -73,6 +73,7 @@ export default function AdminApp() {
   const [categoryName, setCategoryName] = useState('');
   const [newProduct, setNewProduct] = useState({ title: '', categoryId: '', price: '', img: '', moq: '1000 片', thumbnails: '', videoUrl: '' });
   const [error, setError] = useState('');
+  const [productKeyword, setProductKeyword] = useState('');
   const [siteSettings, setSiteSettings] = useState({
     companyName: '云浠（温州）包装有限公司',
     address: '浙江省温州龙港市启源路2356-2400',
@@ -82,6 +83,7 @@ export default function AdminApp() {
   });
 
   const activeProducts = useMemo(() => products.filter((p) => p.status === 'active').length, [products]);
+  const filteredProducts = useMemo(() => products.filter((p) => `${p.title} ${p.category}`.toLowerCase().includes(productKeyword.toLowerCase())), [products, productKeyword]);
 
   async function reload(nextToken: string) {
     const [s, c, p, settings] = await Promise.all([
@@ -380,6 +382,10 @@ export default function AdminApp() {
             <input className={inputCls} required value={categoryName} onChange={(e) => setCategoryName(e.target.value)} placeholder="新分类名称" />
             <button className={btnCls} type="submit">新增分类</button>
           </form>
+          <div className="mb-3">
+            <input className={inputCls} value={productKeyword} onChange={(e) => setProductKeyword(e.target.value)} placeholder="搜索产品标题/分类" />
+          </div>
+
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="text-left text-slate-500"><tr><th className="py-2">ID</th><th>分类名</th><th>操作</th></tr></thead>
@@ -431,10 +437,13 @@ export default function AdminApp() {
                 <tr><th className="py-2">ID</th><th>标题</th><th>分类</th><th>价格</th><th>状态</th><th>操作</th></tr>
               </thead>
               <tbody>
-                {products.map((p) => (
+                {filteredProducts.map((p) => (
                   <tr key={p.id} className="border-t border-slate-100 align-top">
                     <td className="py-2">{p.id}</td>
-                    <td className="max-w-xs">{p.title}</td>
+                    <td className="max-w-xs">
+                      <div className="font-medium">{p.title}</div>
+                      <div className="text-xs text-slate-400 mt-1">缩略图: {p.thumbnails?.length || 0} · 视频: {p.videoUrl ? '已配置' : '未配置'}</div>
+                    </td>
                     <td>{p.category}</td>
                     <td>{p.price}</td>
                     <td><span className={`rounded-full px-2 py-1 text-xs ${p.status === 'active' ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500'}`}>{p.status}</span></td>
