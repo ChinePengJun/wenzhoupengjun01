@@ -13,6 +13,7 @@ const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, '..');
 const distDir = path.join(projectRoot, 'dist');
 const indexHtmlPath = path.join(distDir, 'index.html');
+const uploadsDir = path.join(projectRoot, 'data', 'uploads');
 
 const DB_FILE = process.env.ADMIN_DB_PATH || path.join(projectRoot, 'data', 'admin.db');
 const ADMIN_PORT = Number(process.env.ADMIN_PORT || 3000);
@@ -29,6 +30,7 @@ const DEFAULT_SITE_SETTINGS = {
 };
 
 fs.mkdirSync(path.dirname(DB_FILE), { recursive: true });
+fs.mkdirSync(uploadsDir, { recursive: true });
 const db = new Database(DB_FILE);
 
 const sessions = new Map();
@@ -56,6 +58,7 @@ function enrichProduct(product) {
     specs: safeParseJson(product.specs_json, {}),
     tiers: safeParseJson(product.tiers_json, []),
     thumbnails: safeParseJson(product.thumbnails_json, []),
+    videoUrl: product.video_url || '',
   };
 }
 
@@ -105,6 +108,7 @@ function initDatabase() {
       specs_json TEXT NOT NULL DEFAULT '{}',
       tiers_json TEXT NOT NULL DEFAULT '[]',
       thumbnails_json TEXT NOT NULL DEFAULT '[]',
+      video_url TEXT NOT NULL DEFAULT '',
       status TEXT NOT NULL DEFAULT 'active',
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -123,6 +127,7 @@ function initDatabase() {
   try { db.exec("ALTER TABLE products ADD COLUMN specs_json TEXT NOT NULL DEFAULT '{}'"); } catch {}
   try { db.exec("ALTER TABLE products ADD COLUMN tiers_json TEXT NOT NULL DEFAULT '[]'"); } catch {}
   try { db.exec("ALTER TABLE products ADD COLUMN thumbnails_json TEXT NOT NULL DEFAULT '[]'"); } catch {}
+  try { db.exec("ALTER TABLE products ADD COLUMN video_url TEXT NOT NULL DEFAULT ''"); } catch {}
 
   const adminExists = db.prepare('SELECT id FROM admins WHERE username = ?').get(ADMIN_SEED_USERNAME);
   if (!adminExists) {
@@ -178,8 +183,8 @@ function initDatabase() {
     ];
 
     const insertProduct = db.prepare(
-      `INSERT INTO products(title, category_id, price, img, moq, description, specs_json, tiers_json, thumbnails_json, status, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, '{}', '[]', '[]', 'active', datetime('now'), datetime('now'))`,
+      `INSERT INTO products(title, category_id, price, img, moq, description, specs_json, tiers_json, thumbnails_json, video_url, status, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, '{}', '[]', '[]', '', 'active', datetime('now'), datetime('now'))`,
     );
 
     products.forEach((item) => {
@@ -221,7 +226,7 @@ function getCatalog() {
   const categories = db.prepare('SELECT id, name FROM product_categories ORDER BY id ASC').all();
   const products = db
     .prepare(
-      `SELECT p.id, p.title, p.price, p.img, p.moq, p.description, p.specs_json, p.tiers_json, p.thumbnails_json, p.status,
+      `SELECT p.id, p.title, p.price, p.img, p.moq, p.description, p.specs_json, p.tiers_json, p.thumbnails_json, p.video_url, p.status,
               p.category_id as categoryId, c.name as category
        FROM products p
        INNER JOIN product_categories c ON c.id = p.category_id
@@ -253,6 +258,29 @@ app.get('/api/admin/health', (_req, res) => {
 
 app.get('/api/site-settings', (_req, res) => {
   res.json(getSiteSettings());
+});
+
+
+app.post('/api/admin/upload', authRequired, (req, res) => {
+  const { filename, dataUrl } = req.body || {};
+  if (!filename || !dataUrl || typeof dataUrl !== 'string') {
+    return res.status(400).json({ message: 'filename 和 dataUrl 为必填项' });
+  }
+
+  const match = dataUrl.match(/^data:([\w/+.-]+);base64,(.+)$/);
+  if (!match) return res.status(400).json({ message: 'dataUrl 格式无效' });
+
+  const ext = path.extname(String(filename)).toLowerCase() || '.bin';
+  const safeExt = ext.replace(/[^a-z0-9.]/gi, '') || '.bin';
+  const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}${safeExt}`;
+  const fullPath = path.join(uploadsDir, fileName);
+
+  try {
+    fs.writeFileSync(fullPath, Buffer.from(match[2], 'base64'));
+    return res.json({ url: `/uploads/${fileName}`, fileName });
+  } catch {
+    return res.status(500).json({ message: '文件保存失败' });
+  }
 });
 
 app.get('/api/catalog', (_req, res) => {
@@ -365,7 +393,7 @@ app.delete('/api/admin/categories/:id', authRequired, (req, res) => {
 app.get('/api/admin/products', authRequired, (_req, res) => {
   const rows = db
     .prepare(
-      `SELECT p.id, p.title, p.price, p.img, p.moq, p.description, p.specs_json, p.tiers_json, p.thumbnails_json, p.status,
+      `SELECT p.id, p.title, p.price, p.img, p.moq, p.description, p.specs_json, p.tiers_json, p.thumbnails_json, p.video_url, p.status,
               p.category_id as categoryId, c.name as category, p.created_at, p.updated_at
        FROM products p
        INNER JOIN product_categories c ON c.id = p.category_id
@@ -387,6 +415,7 @@ app.post('/api/admin/products', authRequired, (req, res) => {
     specs = {},
     tiers = [],
     thumbnails = [],
+    videoUrl = '',
     status = 'active',
   } = req.body || {};
 
@@ -399,8 +428,8 @@ app.post('/api/admin/products', authRequired, (req, res) => {
 
   const result = db
     .prepare(
-      `INSERT INTO products(title, category_id, price, img, moq, description, specs_json, tiers_json, thumbnails_json, status, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
+      `INSERT INTO products(title, category_id, price, img, moq, description, specs_json, tiers_json, thumbnails_json, video_url, status, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
     )
     .run(
       title,
@@ -412,12 +441,13 @@ app.post('/api/admin/products', authRequired, (req, res) => {
       JSON.stringify(specs || {}),
       JSON.stringify(Array.isArray(tiers) ? tiers : []),
       JSON.stringify(Array.isArray(thumbnails) ? thumbnails : []),
+      String(videoUrl || ''),
       status === 'disabled' ? 'disabled' : 'active',
     );
 
   const row = db
     .prepare(
-      `SELECT p.id, p.title, p.price, p.img, p.moq, p.description, p.specs_json, p.tiers_json, p.thumbnails_json, p.status,
+      `SELECT p.id, p.title, p.price, p.img, p.moq, p.description, p.specs_json, p.tiers_json, p.thumbnails_json, p.video_url, p.status,
               p.category_id as categoryId, c.name as category, p.created_at, p.updated_at
        FROM products p
        INNER JOIN product_categories c ON c.id = p.category_id
@@ -433,14 +463,14 @@ app.put('/api/admin/products/:id', authRequired, (req, res) => {
   const existing = db.prepare('SELECT * FROM products WHERE id = ?').get(id);
   if (!existing) return res.status(404).json({ message: '产品不存在' });
 
-  const { title, categoryId, price, img, moq, description, specs, tiers, thumbnails, status } = req.body || {};
+  const { title, categoryId, price, img, moq, description, specs, tiers, thumbnails, videoUrl, status } = req.body || {};
   const targetCategoryId = Number(categoryId ?? existing.category_id);
   const category = db.prepare('SELECT id FROM product_categories WHERE id = ?').get(targetCategoryId);
   if (!category) return res.status(400).json({ message: '分类不存在' });
 
   db.prepare(
     `UPDATE products
-     SET title = ?, category_id = ?, price = ?, img = ?, moq = ?, description = ?, specs_json = ?, tiers_json = ?, thumbnails_json = ?, status = ?, updated_at = datetime('now')
+     SET title = ?, category_id = ?, price = ?, img = ?, moq = ?, description = ?, specs_json = ?, tiers_json = ?, thumbnails_json = ?, video_url = ?, status = ?, updated_at = datetime('now')
      WHERE id = ?`,
   ).run(
     title ?? existing.title,
@@ -452,13 +482,14 @@ app.put('/api/admin/products/:id', authRequired, (req, res) => {
     specs === undefined ? existing.specs_json : JSON.stringify(specs || {}),
     tiers === undefined ? existing.tiers_json : JSON.stringify(Array.isArray(tiers) ? tiers : []),
     thumbnails === undefined ? existing.thumbnails_json : JSON.stringify(Array.isArray(thumbnails) ? thumbnails : []),
+    videoUrl ?? existing.video_url,
     status ?? existing.status,
     id,
   );
 
   const row = db
     .prepare(
-      `SELECT p.id, p.title, p.price, p.img, p.moq, p.description, p.specs_json, p.tiers_json, p.thumbnails_json, p.status,
+      `SELECT p.id, p.title, p.price, p.img, p.moq, p.description, p.specs_json, p.tiers_json, p.thumbnails_json, p.video_url, p.status,
               p.category_id as categoryId, c.name as category, p.created_at, p.updated_at
        FROM products p INNER JOIN product_categories c ON c.id = p.category_id
        WHERE p.id = ?`,
@@ -579,6 +610,7 @@ app.delete('/api/admin/announcements/:id', authRequired, (req, res) => {
   res.json({ success: true });
 });
 
+app.use('/uploads', express.static(uploadsDir));
 app.use(express.static(distDir));
 
 app.get('*', (req, res, next) => {

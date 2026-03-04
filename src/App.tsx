@@ -475,7 +475,7 @@ export default function App() {
 
     const productImages = [product.img, ...((product.thumbnails || []) as string[])].filter(Boolean);
     const productMedia = [
-      { type: "video" as const, url: "https://videos.pexels.com/video-files/18338777/18338777-uhd_2560_1440_30fps.mp4", poster: product.img },
+      { type: "video" as const, url: (product.videoUrl || "https://videos.pexels.com/video-files/18338777/18338777-uhd_2560_1440_30fps.mp4"), poster: product.img },
       ...productImages.map((url) => ({ type: "image" as const, url })),
     ];
 

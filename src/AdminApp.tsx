@@ -14,6 +14,7 @@ type Product = {
   specs?: Record<string, string>;
   tiers?: Array<{ range: string; price: string }>;
   thumbnails?: string[];
+  videoUrl?: string;
 };
 
 type Stats = {
@@ -53,6 +54,15 @@ const cardCls = 'rounded-2xl border border-slate-200 bg-white p-4 shadow-sm';
 const btnCls = 'rounded-xl px-3 py-2 text-sm font-semibold text-white bg-slate-900 hover:bg-slate-700 transition';
 const inputCls = 'w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300';
 
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error('文件读取失败'));
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function AdminApp() {
   const [token, setToken] = useState('');
   const [username, setUsername] = useState('admin');
@@ -61,7 +71,7 @@ export default function AdminApp() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [categoryName, setCategoryName] = useState('');
-  const [newProduct, setNewProduct] = useState({ title: '', categoryId: '', price: '', img: '', moq: '1000 片', thumbnails: '' });
+  const [newProduct, setNewProduct] = useState({ title: '', categoryId: '', price: '', img: '', moq: '1000 片', thumbnails: '', videoUrl: '' });
   const [error, setError] = useState('');
   const [siteSettings, setSiteSettings] = useState({
     companyName: '云浠（温州）包装有限公司',
@@ -163,10 +173,11 @@ export default function AdminApp() {
           img: newProduct.img,
           moq: newProduct.moq,
           thumbnails: newProduct.thumbnails.split(',').map((x) => x.trim()).filter(Boolean),
+          videoUrl: newProduct.videoUrl,
           status: 'active',
         }),
       }, token);
-      setNewProduct({ title: '', categoryId: '', price: '', img: '', moq: '1000 片', thumbnails: '' });
+      setNewProduct({ title: '', categoryId: '', price: '', img: '', moq: '1000 片', thumbnails: '', videoUrl: '' });
       await reload(token);
     } catch (err) {
       setError((err as Error).message);
@@ -211,6 +222,53 @@ export default function AdminApp() {
 
 
 
+  async function uploadAndFillMainImage(file: File) {
+    try {
+      const dataUrl = await fileToDataUrl(file);
+      const result = await request<{ url: string }>('/api/admin/upload', {
+        method: 'POST',
+        body: JSON.stringify({ filename: file.name, dataUrl }),
+      }, token);
+      setNewProduct((v) => ({ ...v, img: result.url }));
+    } catch (err) {
+      setError(`主图上传失败：${(err as Error).message}`);
+    }
+  }
+
+  async function uploadAndAppendThumbnails(files: FileList) {
+    try {
+      const urls: string[] = [];
+      for (const file of Array.from(files)) {
+        const dataUrl = await fileToDataUrl(file);
+        const result = await request<{ url: string }>('/api/admin/upload', {
+          method: 'POST',
+          body: JSON.stringify({ filename: file.name, dataUrl }),
+        }, token);
+        urls.push(result.url);
+      }
+
+      setNewProduct((v) => {
+        const existing = v.thumbnails.split(',').map((x) => x.trim()).filter(Boolean);
+        return { ...v, thumbnails: [...existing, ...urls].join(',') };
+      });
+    } catch (err) {
+      setError(`缩略图上传失败：${(err as Error).message}`);
+    }
+  }
+
+  async function uploadAndFillVideo(file: File) {
+    try {
+      const dataUrl = await fileToDataUrl(file);
+      const result = await request<{ url: string }>('/api/admin/upload', {
+        method: 'POST',
+        body: JSON.stringify({ filename: file.name, dataUrl }),
+      }, token);
+      setNewProduct((v) => ({ ...v, videoUrl: result.url }));
+    } catch (err) {
+      setError(`视频上传失败：${(err as Error).message}`);
+    }
+  }
+
   async function saveSiteSettings(e: FormEvent) {
     e.preventDefault();
     try {
@@ -246,6 +304,9 @@ export default function AdminApp() {
     );
     if (thumbnailsText === null) return;
 
+    const videoUrl = window.prompt('详情视频 URL（可留空）', item.videoUrl || '');
+    if (videoUrl === null) return;
+
     try {
       await request(`/api/admin/products/${item.id}`, {
         method: 'PUT',
@@ -254,6 +315,7 @@ export default function AdminApp() {
           specs: JSON.parse(specsText),
           tiers: JSON.parse(tiersText),
           thumbnails: JSON.parse(thumbnailsText),
+          videoUrl,
         }),
       }, token);
       await reload(token);
@@ -349,7 +411,17 @@ export default function AdminApp() {
               <input className={inputCls} value={newProduct.moq} onChange={(e) => setNewProduct((v) => ({ ...v, moq: e.target.value }))} placeholder="起订量" />
             </div>
             <input className={inputCls} required value={newProduct.img} onChange={(e) => setNewProduct((v) => ({ ...v, img: e.target.value }))} placeholder="主图 URL" />
+            <label className="text-xs text-slate-500">上传主图
+              <input type="file" accept="image/*" className="block mt-1" onChange={(e) => e.target.files?.[0] && uploadAndFillMainImage(e.target.files[0])} />
+            </label>
             <input className={inputCls} value={newProduct.thumbnails} onChange={(e) => setNewProduct((v) => ({ ...v, thumbnails: e.target.value }))} placeholder="详情缩略图 URL（多个用逗号分隔）" />
+            <label className="text-xs text-slate-500">上传详情缩略图（可多选）
+              <input type="file" accept="image/*" multiple className="block mt-1" onChange={(e) => e.target.files && uploadAndAppendThumbnails(e.target.files)} />
+            </label>
+            <input className={inputCls} value={newProduct.videoUrl} onChange={(e) => setNewProduct((v) => ({ ...v, videoUrl: e.target.value }))} placeholder="详情视频 URL" />
+            <label className="text-xs text-slate-500">上传详情视频
+              <input type="file" accept="video/*" className="block mt-1" onChange={(e) => e.target.files?.[0] && uploadAndFillVideo(e.target.files[0])} />
+            </label>
             <button className={`${btnCls} w-fit`} type="submit">新增产品</button>
           </form>
 

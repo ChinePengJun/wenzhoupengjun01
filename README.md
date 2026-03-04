@@ -58,4 +58,5 @@ npm run start:prod
 - `GET/POST/PUT/DELETE /api/admin/products` 产品管理（影响前台）
 - `GET /api/catalog` 前台产品/分类读取接口
 - `GET/PUT /api/admin/site-settings` 站点信息（地址/电话/邮箱/版权）
+- `POST /api/admin/upload` 上传图片/视频并返回URL
 - `GET /api/site-settings` 前台站点信息读取
