@@ -43,6 +43,13 @@ export default function App() {
 
   const [categories, setCategories] = useState<string[]>(["全部"]);
   const [products, setProducts] = useState<any[]>([]);
+  const [siteSettings, setSiteSettings] = useState({
+    companyName: '云浠（温州）包装有限公司',
+    address: '浙江省温州龙港市启源路2356-2400',
+    phone: '+86-131 6635 1888',
+    email: 'wzyunxipack@qq.com',
+    copyright: '© 云浠（温州）包装有限公司 版权所有',
+  });
 
   const defaultCatalog = {
     categories: [{ name: "3D滴胶贴纸" }, { name: "不干胶标签" }, { name: "纸袋、包装盒定制" }],
@@ -88,6 +95,23 @@ export default function App() {
     })();
   }, []);
 
+
+  useEffect(() => {
+    const base = (import.meta.env.VITE_ADMIN_API_BASE || '').replace(/\/$/, '');
+    const candidates = base ? [base] : ['', 'http://localhost:80', 'http://localhost:3100'];
+
+    (async () => {
+      for (const candidate of candidates) {
+        try {
+          const res = await fetch(`${candidate}/api/site-settings`);
+          if (!res.ok) continue;
+          const data = await res.json();
+          setSiteSettings((prev) => ({ ...prev, ...data }));
+          return;
+        } catch {}
+      }
+    })();
+  }, []);
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 50);
@@ -244,7 +268,7 @@ export default function App() {
                 <div className="p-3 md:p-4">
                   <h3 className="text-xs md:text-sm font-medium mb-2 line-clamp-2 h-8 md:h-10">{product.title}</h3>
                   <p className="text-hanke-red font-bold text-sm md:text-base">{product.price}</p>
-                  <p className="text-[10px] text-gray-400 mt-1">最小起订量: 1000 片</p>
+                  <p className="text-[10px] text-gray-400 mt-1">最小起订量: {product.moq || "1000 片"}</p>
                 </div>
               </motion.div>
             ))}
@@ -371,7 +395,7 @@ export default function App() {
                   <div className="flex items-center justify-between mt-2 md:mt-4">
                     <div>
                       <p className="text-hanke-red font-black text-sm md:text-xl">{product.price}</p>
-                      <p className="text-[8px] md:text-[10px] text-gray-400 mt-0.5 md:mt-1">最小起订量: 1000 片</p>
+                      <p className="text-[8px] md:text-[10px] text-gray-400 mt-0.5 md:mt-1">最小起订量: {product.moq || "1000 片"}</p>
                     </div>
                     <button 
                       onClick={(e) => { e.stopPropagation(); handleProductClick(product); }}
@@ -893,10 +917,10 @@ export default function App() {
 
             <div className="space-y-6 md:space-y-10">
               {[
-                { icon: <Printer size={20} className="md:w-6 md:h-6" />, label: "Company Name", value: "云浠（温州）包装有限公司" },
-                { icon: <MapPin size={20} className="md:w-6 md:h-6" />, label: "Address", value: "浙江省温州龙港市启源路2356-2400" },
-                { icon: <Phone size={20} className="md:w-6 md:h-6" />, label: "Phone:", value: "+8613166351888" },
-                { icon: <Mail size={20} className="md:w-6 md:h-6" />, label: "E-mail:", value: "wzyunxipack@qq.com" },
+                { icon: <Printer size={20} className="md:w-6 md:h-6" />, label: "Company Name", value: siteSettings.companyName },
+                { icon: <MapPin size={20} className="md:w-6 md:h-6" />, label: "Address", value: siteSettings.address },
+                { icon: <Phone size={20} className="md:w-6 md:h-6" />, label: "Phone:", value: siteSettings.phone },
+                { icon: <Mail size={20} className="md:w-6 md:h-6" />, label: "E-mail:", value: siteSettings.email },
               ].map((item, i) => (
                 <div key={i} className="flex gap-4 md:gap-6 group">
                   <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-hanke-red text-white flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform shadow-lg shadow-red-100">
@@ -1244,15 +1268,15 @@ export default function App() {
                 <div className="space-y-4 md:space-y-6 text-gray-400 text-xs md:text-sm">
                 <div className="flex gap-3">
                   <MapPin size={18} className="text-hanke-red shrink-0 md:w-5 md:h-5" />
-                  <p>地址：浙江省温州龙港市启源路2356-2400</p>
+                  <p>地址：{siteSettings.address}</p>
                 </div>
                 <div className="flex gap-3">
                   <Phone size={18} className="text-hanke-red shrink-0 md:w-5 md:h-5" />
-                  <p>电话：+86-131 6635 1888</p>
+                  <p>电话：{siteSettings.phone}</p>
                 </div>
                 <div className="flex gap-3">
                   <Mail size={18} className="text-hanke-red shrink-0 md:w-5 md:h-5" />
-                  <p>邮箱：wzyunxipack@qq.com</p>
+                  <p>邮箱：{siteSettings.email}</p>
                 </div>
               </div>
             </div>
@@ -1299,7 +1323,7 @@ export default function App() {
         </div>
 
         <div className="pt-12 border-t border-white/10 flex flex-col md:flex-row justify-between items-center gap-8 text-xs text-gray-500">
-            <p>© 云浠（温州）包装有限公司 版权所有</p>
+            <p>{siteSettings.copyright}</p>
             <div className="flex gap-8">
               <a href="#" className="hover:text-white transition-colors">隐私政策</a>
               <a href="#" className="hover:text-white transition-colors">博客</a>
@@ -1311,8 +1335,8 @@ export default function App() {
       {/* Floating Sidebar (Desktop Only) */}
       <div className="fixed right-0 top-1/2 -translate-y-1/2 z-40 hidden lg:flex flex-col bg-[#2A2524] shadow-2xl border-l border-white/10">
         {[
-          { icon: <Phone size={24} />, label: "+86-183 1290 0808", action: () => window.location.href = "tel:+8618312900808" },
-          { icon: <Mail size={24} />, label: "wzyunxipack@qq.com", action: () => window.location.href = "mailto:wzyunxipack@qq.com" },
+          { icon: <Phone size={24} />, label: siteSettings.phone, action: () => window.location.href = `tel:${siteSettings.phone}` },
+          { icon: <Mail size={24} />, label: siteSettings.email, action: () => window.location.href = `mailto:${siteSettings.email}` },
           { icon: <MessageSquare size={24} />, label: "+86-13296759287", action: () => setCurrentPage("contact") },
           { icon: <MessageSquare size={24} />, label: "获取报价", action: () => setCurrentPage("contact") },
         ].map((item, i) => (

@@ -10,6 +10,9 @@ type Product = {
   img: string;
   moq: string;
   status: string;
+  description?: string;
+  specs?: Record<string, string>;
+  tiers?: Array<{ range: string; price: string }>;
 };
 
 type Stats = {
@@ -59,18 +62,27 @@ export default function AdminApp() {
   const [categoryName, setCategoryName] = useState('');
   const [newProduct, setNewProduct] = useState({ title: '', categoryId: '', price: '', img: '', moq: '1000 片' });
   const [error, setError] = useState('');
+  const [siteSettings, setSiteSettings] = useState({
+    companyName: '云浠（温州）包装有限公司',
+    address: '浙江省温州龙港市启源路2356-2400',
+    phone: '+86-131 6635 1888',
+    email: 'wzyunxipack@qq.com',
+    copyright: '© 云浠（温州）包装有限公司 版权所有',
+  });
 
   const activeProducts = useMemo(() => products.filter((p) => p.status === 'active').length, [products]);
 
   async function reload(nextToken: string) {
-    const [s, c, p] = await Promise.all([
+    const [s, c, p, settings] = await Promise.all([
       request<Stats>('/api/admin/dashboard/stats', {}, nextToken),
       request<Category[]>('/api/admin/categories', {}, nextToken),
       request<Product[]>('/api/admin/products', {}, nextToken),
+      request<Record<string, string>>('/api/admin/site-settings', {}, nextToken),
     ]);
     setStats(s);
     setCategories(c);
     setProducts(p);
+    setSiteSettings((prev) => ({ ...prev, ...settings }));
   }
 
   useEffect(() => {
@@ -195,6 +207,52 @@ export default function AdminApp() {
     }
   }
 
+
+
+  async function saveSiteSettings(e: FormEvent) {
+    e.preventDefault();
+    try {
+      await request('/api/admin/site-settings', {
+        method: 'PUT',
+        body: JSON.stringify(siteSettings),
+      }, token);
+      await reload(token);
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
+
+  async function editProductDetail(item: Product) {
+    const description = window.prompt('产品详情描述（显示在详情页）', item.description || '');
+    if (description === null) return;
+
+    const specsText = window.prompt(
+      '产品规格 JSON（例如 {"material":"PET","brand":"CY"}）',
+      JSON.stringify(item.specs || {}, null, 2),
+    );
+    if (specsText === null) return;
+
+    const tiersText = window.prompt(
+      '价格阶梯 JSON（例如 [{"range":"1000-3000","price":"US$0.2"}]）',
+      JSON.stringify(item.tiers || [], null, 2),
+    );
+    if (tiersText === null) return;
+
+    try {
+      await request(`/api/admin/products/${item.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          description,
+          specs: JSON.parse(specsText),
+          tiers: JSON.parse(tiersText),
+        }),
+      }, token);
+      await reload(token);
+    } catch (err) {
+      setError(`产品详情更新失败：${(err as Error).message}`);
+    }
+  }
+
   if (!token) {
     return (
       <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
@@ -232,6 +290,18 @@ export default function AdminApp() {
           <div className={cardCls}><p className="text-xs text-slate-500">管理用户</p><p className="text-2xl font-black">{stats?.managedUserCount ?? 0}</p></div>
           <div className={cardCls}><p className="text-xs text-slate-500">已发布公告</p><p className="text-2xl font-black">{stats?.publishedAnnouncementCount ?? 0}</p></div>
         </div>
+
+        <section className={cardCls}>
+          <h2 className="text-lg font-bold mb-3">站点信息设置（影响前台）</h2>
+          <form onSubmit={saveSiteSettings} className="grid md:grid-cols-2 gap-2 mb-2">
+            <input className={inputCls} value={siteSettings.companyName} onChange={(e) => setSiteSettings((v) => ({ ...v, companyName: e.target.value }))} placeholder="公司名称" />
+            <input className={inputCls} value={siteSettings.phone} onChange={(e) => setSiteSettings((v) => ({ ...v, phone: e.target.value }))} placeholder="电话" />
+            <input className={inputCls} value={siteSettings.email} onChange={(e) => setSiteSettings((v) => ({ ...v, email: e.target.value }))} placeholder="邮箱" />
+            <input className={inputCls} value={siteSettings.address} onChange={(e) => setSiteSettings((v) => ({ ...v, address: e.target.value }))} placeholder="地址" />
+            <input className={inputCls + ' md:col-span-2'} value={siteSettings.copyright} onChange={(e) => setSiteSettings((v) => ({ ...v, copyright: e.target.value }))} placeholder="版权信息" />
+            <button className={btnCls + ' md:col-span-2 w-fit'} type="submit">保存站点信息</button>
+          </form>
+        </section>
 
         <section className={cardCls}>
           <h2 className="text-lg font-bold mb-3">分类管理</h2>
@@ -288,6 +358,7 @@ export default function AdminApp() {
                     <td><span className={`rounded-full px-2 py-1 text-xs ${p.status === 'active' ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500'}`}>{p.status}</span></td>
                     <td className="space-x-2">
                       <button className="rounded-lg bg-slate-100 px-2 py-1" onClick={() => moveProductCategory(p)}>改分类</button>
+                      <button className="rounded-lg bg-amber-50 text-amber-700 px-2 py-1" onClick={() => editProductDetail(p)}>编辑详情</button>
                       <button className="rounded-lg bg-indigo-50 text-indigo-700 px-2 py-1" onClick={() => toggleProductStatus(p)}>{p.status === 'active' ? '下架' : '上架'}</button>
                       <button className="rounded-lg bg-red-50 text-red-600 px-2 py-1" onClick={() => removeProduct(p.id)}>删除</button>
                     </td>

@@ -20,6 +20,14 @@ const ADMIN_SEED_USERNAME = process.env.ADMIN_USERNAME || 'admin';
 const ADMIN_SEED_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123456';
 const ALLOWED_ORIGIN = process.env.ADMIN_CORS_ORIGIN || '*';
 
+const DEFAULT_SITE_SETTINGS = {
+  companyName: '云浠（温州）包装有限公司',
+  address: '浙江省温州龙港市启源路2356-2400',
+  phone: '+86-131 6635 1888',
+  email: 'wzyunxipack@qq.com',
+  copyright: '© 云浠（温州）包装有限公司 版权所有',
+};
+
 fs.mkdirSync(path.dirname(DB_FILE), { recursive: true });
 const db = new Database(DB_FILE);
 
@@ -32,6 +40,22 @@ function hashPassword(password) {
 
 function newSessionToken() {
   return crypto.randomBytes(32).toString('hex');
+}
+
+function safeParseJson(value, fallback) {
+  try {
+    return value ? JSON.parse(value) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function enrichProduct(product) {
+  return {
+    ...product,
+    specs: safeParseJson(product.specs_json, {}),
+    tiers: safeParseJson(product.tiers_json, []),
+  };
 }
 
 function initDatabase() {
@@ -76,12 +100,26 @@ function initDatabase() {
       price TEXT NOT NULL,
       img TEXT NOT NULL,
       moq TEXT NOT NULL DEFAULT '1000 片',
+      description TEXT NOT NULL DEFAULT '',
+      specs_json TEXT NOT NULL DEFAULT '{}',
+      tiers_json TEXT NOT NULL DEFAULT '[]',
       status TEXT NOT NULL DEFAULT 'active',
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now')),
       FOREIGN KEY (category_id) REFERENCES product_categories(id)
     );
+
+    CREATE TABLE IF NOT EXISTS site_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
+
+  // Migration for old DB
+  try { db.exec("ALTER TABLE products ADD COLUMN description TEXT NOT NULL DEFAULT ''"); } catch {}
+  try { db.exec("ALTER TABLE products ADD COLUMN specs_json TEXT NOT NULL DEFAULT '{}'"); } catch {}
+  try { db.exec("ALTER TABLE products ADD COLUMN tiers_json TEXT NOT NULL DEFAULT '[]'"); } catch {}
 
   const adminExists = db.prepare('SELECT id FROM admins WHERE username = ?').get(ADMIN_SEED_USERNAME);
   if (!adminExists) {
@@ -92,13 +130,18 @@ function initDatabase() {
     console.log(`[admin] 已初始化默认管理员: ${ADMIN_SEED_USERNAME}`);
   }
 
+  const upsertSetting = db.prepare(`
+    INSERT INTO site_settings(key, value, updated_at)
+    VALUES (@key, @value, datetime('now'))
+    ON CONFLICT(key) DO NOTHING
+  `);
+  Object.entries(DEFAULT_SITE_SETTINGS).forEach(([key, value]) => upsertSetting.run({ key, value }));
+
   const categoryCount = db.prepare('SELECT COUNT(*) as count FROM product_categories').get().count;
   if (!categoryCount) {
-    const categoryNames = ['3D滴胶贴纸', '不干胶标签', '纸袋、包装盒定制'];
-    const insertCategory = db.prepare(
-      `INSERT INTO product_categories(name, created_at, updated_at) VALUES (?, datetime('now'), datetime('now'))`,
-    );
-    for (const name of categoryNames) insertCategory.run(name);
+    ['3D滴胶贴纸', '不干胶标签', '纸袋、包装盒定制'].forEach((name) => {
+      db.prepare(`INSERT INTO product_categories(name, created_at, updated_at) VALUES (?, datetime('now'), datetime('now'))`).run(name);
+    });
   }
 
   const productCount = db.prepare('SELECT COUNT(*) as count FROM products').get().count;
@@ -111,6 +154,7 @@ function initDatabase() {
         price: 'US$0.20-0.23',
         img: 'https://s.alicdn.com/@sc04/kf/H1e4ecf49828942c8aeee85fe6cb532ef1/CY-CA-1518-3D-PET-.jpg?hasNWGrade=1',
         moq: '3000 pieces',
+        description: '面向礼品与工艺包装场景的高品质滴胶贴纸。',
       },
       {
         title: '批发CY品牌CA-1513型号定制印刷徽标设计3D防水礼品工艺手机壳贴纸A6尺寸PET环氧树脂',
@@ -118,6 +162,7 @@ function initDatabase() {
         price: 'US$0.20-0.30',
         img: 'https://s.alicdn.com/@sc04/kf/Hb1630189e9a44b0db57da0c63bc03f0fs/-CY-CA-1513-3D-A6-PET.jpg?hasNWGrade=1',
         moq: '3000 pieces',
+        description: '支持 LOGO、尺寸、工艺全定制。',
       },
       {
         title: '定制 A6 尺寸 3D 圆顶凝胶水晶徽标贴纸 UV 印刷防水 UV 装饰手机后盖礼品及工艺品',
@@ -125,19 +170,19 @@ function initDatabase() {
         price: 'US$0.18-0.28',
         img: 'https://s.alicdn.com/@sc04/kf/H9639f9cf7f0b4c418df3e5750eace15fU/-A6-3D-UV-UV-.jpg?hasNWGrade=1',
         moq: '3000 pieces',
+        description: '适用于品牌标签、促销礼品与包装装饰。',
       },
     ];
 
     const insertProduct = db.prepare(
-      `INSERT INTO products(title, category_id, price, img, moq, status, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, 'active', datetime('now'), datetime('now'))`,
+      `INSERT INTO products(title, category_id, price, img, moq, description, specs_json, tiers_json, status, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, '{}', '[]', 'active', datetime('now'), datetime('now'))`,
     );
-    for (const item of products) {
+
+    products.forEach((item) => {
       const category = categoryByName.get(item.category);
-      if (category) {
-        insertProduct.run(item.title, category.id, item.price, item.img, item.moq);
-      }
-    }
+      if (category) insertProduct.run(item.title, category.id, item.price, item.img, item.moq, item.description);
+    });
   }
 }
 
@@ -163,16 +208,25 @@ function pruneSessions() {
   }
 }
 
+function getSiteSettings() {
+  const rows = db.prepare('SELECT key, value FROM site_settings').all();
+  const fromDb = Object.fromEntries(rows.map((row) => [row.key, row.value]));
+  return { ...DEFAULT_SITE_SETTINGS, ...fromDb };
+}
+
 function getCatalog() {
   const categories = db.prepare('SELECT id, name FROM product_categories ORDER BY id ASC').all();
   const products = db
     .prepare(
-      `SELECT p.id, p.title, p.price, p.img, p.moq, p.status, p.category_id as categoryId, c.name as category
+      `SELECT p.id, p.title, p.price, p.img, p.moq, p.description, p.specs_json, p.tiers_json, p.status,
+              p.category_id as categoryId, c.name as category
        FROM products p
        INNER JOIN product_categories c ON c.id = p.category_id
        ORDER BY p.id DESC`,
     )
-    .all();
+    .all()
+    .map(enrichProduct);
+
   return { categories, products };
 }
 
@@ -194,11 +248,15 @@ app.get('/api/admin/health', (_req, res) => {
   res.json({ ok: true, service: 'admin-backend', time: new Date().toISOString() });
 });
 
+app.get('/api/site-settings', (_req, res) => {
+  res.json(getSiteSettings());
+});
+
 app.get('/api/catalog', (_req, res) => {
   const catalog = getCatalog();
   res.json({
     categories: catalog.categories,
-    products: catalog.products.filter((p) => p.status === 'active'),
+    products: catalog.products.filter((item) => item.status === 'active'),
   });
 });
 
@@ -214,6 +272,7 @@ app.post('/api/admin/auth/login', (req, res) => {
   const token = newSessionToken();
   const expiresAt = Date.now() + SESSION_TTL_MS;
   sessions.set(token, { id: admin.id, username: admin.username, expiresAt });
+
   return res.json({ token, expiresAt, admin: { id: admin.id, username: admin.username } });
 });
 
@@ -221,6 +280,27 @@ app.post('/api/admin/auth/logout', authRequired, (req, res) => {
   const token = (req.headers.authorization || '').replace('Bearer ', '');
   if (token) sessions.delete(token);
   res.json({ success: true });
+});
+
+app.get('/api/admin/site-settings', authRequired, (_req, res) => {
+  res.json(getSiteSettings());
+});
+
+app.put('/api/admin/site-settings', authRequired, (req, res) => {
+  const payload = req.body || {};
+  const upsert = db.prepare(
+    `INSERT INTO site_settings(key, value, updated_at)
+     VALUES (?, ?, datetime('now'))
+     ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')`,
+  );
+
+  for (const key of Object.keys(DEFAULT_SITE_SETTINGS)) {
+    if (payload[key] !== undefined) {
+      upsert.run(key, String(payload[key] ?? ''));
+    }
+  }
+
+  res.json(getSiteSettings());
 });
 
 app.get('/api/admin/dashboard/stats', authRequired, (_req, res) => {
@@ -243,7 +323,7 @@ app.post('/api/admin/categories', authRequired, (req, res) => {
   if (!name?.trim()) return res.status(400).json({ message: '分类名称不能为空' });
   try {
     const result = db
-      .prepare(`INSERT INTO product_categories(name, created_at, updated_at) VALUES (?, datetime('now'), datetime('now'))`)
+      .prepare('INSERT INTO product_categories(name, created_at, updated_at) VALUES (?, datetime(\'now\'), datetime(\'now\'))')
       .run(name.trim());
     const row = db.prepare('SELECT id, name, created_at, updated_at FROM product_categories WHERE id = ?').get(result.lastInsertRowid);
     res.status(201).json(row);
@@ -261,7 +341,7 @@ app.put('/api/admin/categories/:id', authRequired, (req, res) => {
   if (!existing) return res.status(404).json({ message: '分类不存在' });
 
   try {
-    db.prepare(`UPDATE product_categories SET name = ?, updated_at = datetime('now') WHERE id = ?`).run(name.trim(), id);
+    db.prepare('UPDATE product_categories SET name = ?, updated_at = datetime(\'now\') WHERE id = ?').run(name.trim(), id);
     const row = db.prepare('SELECT id, name, created_at, updated_at FROM product_categories WHERE id = ?').get(id);
     res.json(row);
   } catch (error) {
@@ -282,38 +362,65 @@ app.delete('/api/admin/categories/:id', authRequired, (req, res) => {
 app.get('/api/admin/products', authRequired, (_req, res) => {
   const rows = db
     .prepare(
-      `SELECT p.id, p.title, p.price, p.img, p.moq, p.status, p.category_id as categoryId, c.name as category,
-              p.created_at, p.updated_at
+      `SELECT p.id, p.title, p.price, p.img, p.moq, p.description, p.specs_json, p.tiers_json, p.status,
+              p.category_id as categoryId, c.name as category, p.created_at, p.updated_at
        FROM products p
        INNER JOIN product_categories c ON c.id = p.category_id
        ORDER BY p.id DESC`,
     )
-    .all();
+    .all()
+    .map(enrichProduct);
   res.json(rows);
 });
 
 app.post('/api/admin/products', authRequired, (req, res) => {
-  const { title, categoryId, price, img, moq = '1000 片', status = 'active' } = req.body || {};
-  if (!title || !categoryId || !price || !img) return res.status(400).json({ message: 'title/categoryId/price/img 为必填项' });
+  const {
+    title,
+    categoryId,
+    price,
+    img,
+    moq = '1000 片',
+    description = '',
+    specs = {},
+    tiers = [],
+    status = 'active',
+  } = req.body || {};
+
+  if (!title || !categoryId || !price || !img) {
+    return res.status(400).json({ message: 'title/categoryId/price/img 为必填项' });
+  }
+
   const category = db.prepare('SELECT id FROM product_categories WHERE id = ?').get(Number(categoryId));
   if (!category) return res.status(400).json({ message: '分类不存在' });
 
   const result = db
     .prepare(
-      `INSERT INTO products(title, category_id, price, img, moq, status, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
+      `INSERT INTO products(title, category_id, price, img, moq, description, specs_json, tiers_json, status, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
     )
-    .run(title, Number(categoryId), price, img, moq, status === 'disabled' ? 'disabled' : 'active');
+    .run(
+      title,
+      Number(categoryId),
+      price,
+      img,
+      moq,
+      description,
+      JSON.stringify(specs || {}),
+      JSON.stringify(Array.isArray(tiers) ? tiers : []),
+      status === 'disabled' ? 'disabled' : 'active',
+    );
 
   const row = db
     .prepare(
-      `SELECT p.id, p.title, p.price, p.img, p.moq, p.status, p.category_id as categoryId, c.name as category,
-              p.created_at, p.updated_at
-       FROM products p INNER JOIN product_categories c ON c.id = p.category_id
+      `SELECT p.id, p.title, p.price, p.img, p.moq, p.description, p.specs_json, p.tiers_json, p.status,
+              p.category_id as categoryId, c.name as category, p.created_at, p.updated_at
+       FROM products p
+       INNER JOIN product_categories c ON c.id = p.category_id
        WHERE p.id = ?`,
     )
     .get(result.lastInsertRowid);
-  res.status(201).json(row);
+
+  res.status(201).json(enrichProduct(row));
 });
 
 app.put('/api/admin/products/:id', authRequired, (req, res) => {
@@ -321,14 +428,14 @@ app.put('/api/admin/products/:id', authRequired, (req, res) => {
   const existing = db.prepare('SELECT * FROM products WHERE id = ?').get(id);
   if (!existing) return res.status(404).json({ message: '产品不存在' });
 
-  const { title, categoryId, price, img, moq, status } = req.body || {};
+  const { title, categoryId, price, img, moq, description, specs, tiers, status } = req.body || {};
   const targetCategoryId = Number(categoryId ?? existing.category_id);
   const category = db.prepare('SELECT id FROM product_categories WHERE id = ?').get(targetCategoryId);
   if (!category) return res.status(400).json({ message: '分类不存在' });
 
   db.prepare(
     `UPDATE products
-     SET title = ?, category_id = ?, price = ?, img = ?, moq = ?, status = ?, updated_at = datetime('now')
+     SET title = ?, category_id = ?, price = ?, img = ?, moq = ?, description = ?, specs_json = ?, tiers_json = ?, status = ?, updated_at = datetime('now')
      WHERE id = ?`,
   ).run(
     title ?? existing.title,
@@ -336,19 +443,23 @@ app.put('/api/admin/products/:id', authRequired, (req, res) => {
     price ?? existing.price,
     img ?? existing.img,
     moq ?? existing.moq,
+    description ?? existing.description,
+    specs === undefined ? existing.specs_json : JSON.stringify(specs || {}),
+    tiers === undefined ? existing.tiers_json : JSON.stringify(Array.isArray(tiers) ? tiers : []),
     status ?? existing.status,
     id,
   );
 
   const row = db
     .prepare(
-      `SELECT p.id, p.title, p.price, p.img, p.moq, p.status, p.category_id as categoryId, c.name as category,
-              p.created_at, p.updated_at
+      `SELECT p.id, p.title, p.price, p.img, p.moq, p.description, p.specs_json, p.tiers_json, p.status,
+              p.category_id as categoryId, c.name as category, p.created_at, p.updated_at
        FROM products p INNER JOIN product_categories c ON c.id = p.category_id
        WHERE p.id = ?`,
     )
     .get(id);
-  res.json(row);
+
+  res.json(enrichProduct(row));
 });
 
 app.delete('/api/admin/products/:id', authRequired, (req, res) => {
@@ -462,14 +573,11 @@ app.delete('/api/admin/announcements/:id', authRequired, (req, res) => {
   res.json({ success: true });
 });
 
-
 app.use(express.static(distDir));
 
 app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api/')) return next();
-  if (fs.existsSync(indexHtmlPath)) {
-    return res.sendFile(indexHtmlPath);
-  }
+  if (fs.existsSync(indexHtmlPath)) return res.sendFile(indexHtmlPath);
   return res.status(503).send('前端构建文件不存在，请先执行 npm run build');
 });
 
