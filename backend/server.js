@@ -11,9 +11,11 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, '..');
+const distDir = path.join(projectRoot, 'dist');
+const indexHtmlPath = path.join(distDir, 'index.html');
 
 const DB_FILE = process.env.ADMIN_DB_PATH || path.join(projectRoot, 'data', 'admin.db');
-const ADMIN_PORT = Number(process.env.ADMIN_PORT || 3100);
+const ADMIN_PORT = Number(process.env.ADMIN_PORT || 80);
 const ADMIN_SEED_USERNAME = process.env.ADMIN_USERNAME || 'admin';
 const ADMIN_SEED_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123456';
 const ALLOWED_ORIGIN = process.env.ADMIN_CORS_ORIGIN || '*';
@@ -458,6 +460,17 @@ app.delete('/api/admin/announcements/:id', authRequired, (req, res) => {
   const result = db.prepare('DELETE FROM system_announcements WHERE id = ?').run(id);
   if (!result.changes) return res.status(404).json({ message: '公告不存在' });
   res.json({ success: true });
+});
+
+
+app.use(express.static(distDir));
+
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api/')) return next();
+  if (fs.existsSync(indexHtmlPath)) {
+    return res.sendFile(indexHtmlPath);
+  }
+  return res.status(503).send('前端构建文件不存在，请先执行 npm run build');
 });
 
 app.listen(ADMIN_PORT, '0.0.0.0', () => {

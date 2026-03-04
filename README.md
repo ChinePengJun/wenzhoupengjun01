@@ -8,43 +8,46 @@ This contains everything you need to run your app locally.
 
 View your app in AI Studio: https://ai.studio/apps/69792749-f6f2-4934-a613-8330101956e0
 
-## Run Locally
+## 生产环境启动（推荐）
 
-**Prerequisites:** Node.js
+目标：**不用开发环境**，直接以生产方式对外提供服务（默认外网端口 `80`）。
 
-1. Install dependencies:
-   `npm install`
-2. Set env in `.env.local`
-3. Run website frontend:
-   `npm run dev`
-
-## 后台管理系统（前后端）
-
-本项目现已包含后台管理前端页面与后台 API。
-
-### 1) 启动后台 API
+1. 安装依赖
 
 ```bash
-npm run admin:dev
+npm install
 ```
 
-默认地址：`http://localhost:3100`
-
-### 2) 启动前台/后台前端
+2. 配置环境变量（可选）
 
 ```bash
-npm run dev
+cp .env.example .env.local
 ```
 
-- 官网前端入口：`http://localhost:3000/`
-- 后台前端入口：`http://localhost:3000/admin`
+3. 一键生产启动（构建前端 + 启动统一服务）
 
-### 默认管理员账号
+```bash
+npm run start:prod
+```
+
+服务启动后：
+- 官网前端：`http://<你的服务器IP或域名>/`
+- 后台前端：`http://<你的服务器IP或域名>/admin`
+- 后台 API：`http://<你的服务器IP或域名>/api/...`
+
+> 默认端口是 `80`（由 `ADMIN_PORT` 控制），可按需修改。
+
+## 本地开发（仅调试时）
+
+- 前端开发：`npm run dev`
+- 仅启动后端：`npm run admin:dev`
+
+## 默认管理员账号
 
 - 用户名：`admin`
 - 密码：`admin123456`
 
-### 主要后台接口
+## 主要接口
 
 - `POST /api/admin/auth/login` 管理员登录
 - `POST /api/admin/auth/logout` 管理员退出

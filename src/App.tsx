@@ -55,7 +55,7 @@ export default function App() {
     : products.filter(p => p.category === activeCategory);
 
   useEffect(() => {
-    fetch(`${(import.meta.env.VITE_ADMIN_API_BASE || 'http://localhost:3100').replace(/\/$/, '')}/api/catalog`)
+    fetch(`${(import.meta.env.VITE_ADMIN_API_BASE || '').replace(/\/$/, '')}/api/catalog`)
       .then((res) => res.json())
       .then((data) => {
         const nextCategories = ["全部", ...((data.categories || []).map((item: any) => item.name))];

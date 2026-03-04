@@ -20,7 +20,7 @@ type Stats = {
   productCount?: number;
 };
 
-const API_BASE = (import.meta.env.VITE_ADMIN_API_BASE || 'http://localhost:3100').replace(/\/$/, '');
+const API_BASE = (import.meta.env.VITE_ADMIN_API_BASE || '').replace(/\/$/, '');
 
 async function request<T>(path: string, options: RequestInit = {}, token?: string): Promise<T> {
   const headers = new Headers(options.headers || {});
