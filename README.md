@@ -10,7 +10,7 @@ View your app in AI Studio: https://ai.studio/apps/69792749-f6f2-4934-a613-83301
 
 ## 生产环境启动（推荐）
 
-目标：**不用开发环境**，直接以生产方式对外提供服务（默认外网端口 `80`）。
+目标：**不用开发环境**，直接以生产方式对外提供服务（默认外网端口 `3000`）。
 
 1. 安装依赖
 
@@ -35,7 +35,7 @@ npm run start:prod
 - 后台前端：`http://<你的服务器IP或域名>/admin`
 - 后台 API：`http://<你的服务器IP或域名>/api/...`
 
-> 默认端口是 `80`（由 `ADMIN_PORT` 控制），可按需修改。
+> 默认端口是 `3000`（由 `ADMIN_PORT` 控制），可按需修改。
 
 ## 本地开发（仅调试时）
 
@@ -57,3 +57,5 @@ npm run start:prod
 - `GET/POST/PUT/DELETE /api/admin/categories` 分类管理（影响前台）
 - `GET/POST/PUT/DELETE /api/admin/products` 产品管理（影响前台）
 - `GET /api/catalog` 前台产品/分类读取接口
+- `GET/PUT /api/admin/site-settings` 站点信息（地址/电话/邮箱/版权）
+- `GET /api/site-settings` 前台站点信息读取

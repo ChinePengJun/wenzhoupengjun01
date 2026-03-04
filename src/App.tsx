@@ -72,7 +72,7 @@ export default function App() {
 
   useEffect(() => {
     const base = (import.meta.env.VITE_ADMIN_API_BASE || '').replace(/\/$/, '');
-    const candidates = base ? [base] : ['', 'http://localhost:80', 'http://localhost:3100'];
+    const candidates = base ? [base] : ['', 'http://localhost:3000'];
 
     (async () => {
       for (const candidate of candidates) {
@@ -98,7 +98,7 @@ export default function App() {
 
   useEffect(() => {
     const base = (import.meta.env.VITE_ADMIN_API_BASE || '').replace(/\/$/, '');
-    const candidates = base ? [base] : ['', 'http://localhost:80', 'http://localhost:3100'];
+    const candidates = base ? [base] : ['', 'http://localhost:3000'];
 
     (async () => {
       for (const candidate of candidates) {
@@ -473,14 +473,10 @@ export default function App() {
       }
     }, []);
 
+    const productImages = [product.img, ...((product.thumbnails || []) as string[])].filter(Boolean);
     const productMedia = [
-      { type: "video", url: "https://videos.pexels.com/video-files/18338777/18338777-uhd_2560_1440_30fps.mp4", poster: product.img },
-      { type: "image", url: `https://picsum.photos/seed/${product.id}-2/600/600` },
-      { type: "image", url: `https://picsum.photos/seed/${product.id}-3/600/600` },
-      { type: "image", url: `https://picsum.photos/seed/${product.id}-4/600/600` },
-      { type: "image", url: `https://picsum.photos/seed/${product.id}-5/600/600` },
-      { type: "image", url: `https://picsum.photos/seed/${product.id}-6/600/600` },
-      { type: "image", url: `https://picsum.photos/seed/${product.id}-7/600/600` },
+      { type: "video" as const, url: "https://videos.pexels.com/video-files/18338777/18338777-uhd_2560_1440_30fps.mp4", poster: product.img },
+      ...productImages.map((url) => ({ type: "image" as const, url })),
     ];
 
     const nextMedia = () => setCurrentMediaIdx((prev) => (prev + 1) % productMedia.length);

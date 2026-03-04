@@ -13,6 +13,7 @@ type Product = {
   description?: string;
   specs?: Record<string, string>;
   tiers?: Array<{ range: string; price: string }>;
+  thumbnails?: string[];
 };
 
 type Stats = {
@@ -24,7 +25,7 @@ type Stats = {
 };
 
 const configuredBase = (import.meta.env.VITE_ADMIN_API_BASE || '').replace(/\/$/, '');
-const apiBases = configuredBase ? [configuredBase] : ['', 'http://localhost:80', 'http://localhost:3100'];
+const apiBases = configuredBase ? [configuredBase] : ['', 'http://localhost:3000'];
 
 async function request<T>(path: string, options: RequestInit = {}, token?: string): Promise<T> {
   const headers = new Headers(options.headers || {});
@@ -60,7 +61,7 @@ export default function AdminApp() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [categoryName, setCategoryName] = useState('');
-  const [newProduct, setNewProduct] = useState({ title: '', categoryId: '', price: '', img: '', moq: '1000 片' });
+  const [newProduct, setNewProduct] = useState({ title: '', categoryId: '', price: '', img: '', moq: '1000 片', thumbnails: '' });
   const [error, setError] = useState('');
   const [siteSettings, setSiteSettings] = useState({
     companyName: '云浠（温州）包装有限公司',
@@ -161,10 +162,11 @@ export default function AdminApp() {
           price: newProduct.price,
           img: newProduct.img,
           moq: newProduct.moq,
+          thumbnails: newProduct.thumbnails.split(',').map((x) => x.trim()).filter(Boolean),
           status: 'active',
         }),
       }, token);
-      setNewProduct({ title: '', categoryId: '', price: '', img: '', moq: '1000 片' });
+      setNewProduct({ title: '', categoryId: '', price: '', img: '', moq: '1000 片', thumbnails: '' });
       await reload(token);
     } catch (err) {
       setError((err as Error).message);
@@ -233,10 +235,16 @@ export default function AdminApp() {
     if (specsText === null) return;
 
     const tiersText = window.prompt(
-      '价格阶梯 JSON（例如 [{"range":"1000-3000","price":"US$0.2"}]）',
+      '价格阶梯 JSON（例如 [{\"range\":\"1000-3000\",\"price\":\"US$0.2\"}]）',
       JSON.stringify(item.tiers || [], null, 2),
     );
     if (tiersText === null) return;
+
+    const thumbnailsText = window.prompt(
+      '详情缩略图 JSON（例如 [\"https://a.jpg\",\"https://b.jpg\"]）',
+      JSON.stringify(item.thumbnails || [], null, 2),
+    );
+    if (thumbnailsText === null) return;
 
     try {
       await request(`/api/admin/products/${item.id}`, {
@@ -245,6 +253,7 @@ export default function AdminApp() {
           description,
           specs: JSON.parse(specsText),
           tiers: JSON.parse(tiersText),
+          thumbnails: JSON.parse(thumbnailsText),
         }),
       }, token);
       await reload(token);
@@ -276,7 +285,7 @@ export default function AdminApp() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl md:text-3xl font-black text-slate-900">后台管理控制台</h1>
-            <p className="text-sm text-slate-500">分类/产品变更会自动影响前台产品中心</p>
+            <p className="text-sm text-slate-500">支持分类、产品、产品详情缩略图、联系方式与版权一体化管理</p>
           </div>
           <button className={btnCls} onClick={onLogout}>退出登录</button>
         </div>
@@ -339,7 +348,8 @@ export default function AdminApp() {
               <input className={inputCls} required value={newProduct.price} onChange={(e) => setNewProduct((v) => ({ ...v, price: e.target.value }))} placeholder="价格（US$0.2-0.4）" />
               <input className={inputCls} value={newProduct.moq} onChange={(e) => setNewProduct((v) => ({ ...v, moq: e.target.value }))} placeholder="起订量" />
             </div>
-            <input className={inputCls} required value={newProduct.img} onChange={(e) => setNewProduct((v) => ({ ...v, img: e.target.value }))} placeholder="图片 URL" />
+            <input className={inputCls} required value={newProduct.img} onChange={(e) => setNewProduct((v) => ({ ...v, img: e.target.value }))} placeholder="主图 URL" />
+            <input className={inputCls} value={newProduct.thumbnails} onChange={(e) => setNewProduct((v) => ({ ...v, thumbnails: e.target.value }))} placeholder="详情缩略图 URL（多个用逗号分隔）" />
             <button className={`${btnCls} w-fit`} type="submit">新增产品</button>
           </form>
 
