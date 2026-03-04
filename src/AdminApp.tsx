@@ -1,28 +1,23 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 
-type AdminUser = {
-  id: number;
-  name: string;
-  email: string;
-  role: string;
-  status: string;
-  created_at: string;
-  updated_at: string;
-};
-
-type Announcement = {
+type Category = { id: number; name: string };
+type Product = {
   id: number;
   title: string;
-  content: string;
-  published: number;
-  created_at: string;
-  updated_at: string;
+  categoryId: number;
+  category: string;
+  price: string;
+  img: string;
+  moq: string;
+  status: string;
 };
 
 type Stats = {
   managedUserCount: number;
   activeUserCount: number;
   publishedAnnouncementCount: number;
+  categoryCount?: number;
+  productCount?: number;
 };
 
 const API_BASE = (import.meta.env.VITE_ADMIN_API_BASE || 'http://localhost:3100').replace(/\/$/, '');
@@ -31,77 +26,48 @@ async function request<T>(path: string, options: RequestInit = {}, token?: strin
   const headers = new Headers(options.headers || {});
   headers.set('Content-Type', 'application/json');
   if (token) headers.set('Authorization', `Bearer ${token}`);
-
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers,
-  });
-
+  const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
   if (!res.ok) {
-    let message = `请求失败(${res.status})`;
-    try {
-      const payload = await res.json();
-      if (payload?.message) message = payload.message;
-    } catch {}
-    throw new Error(message);
+    const payload = await res.json().catch(() => ({}));
+    throw new Error(payload?.message || `请求失败(${res.status})`);
   }
-
   return res.json() as Promise<T>;
 }
 
 export default function AdminApp() {
-  const [token, setToken] = useState<string>('');
+  const [token, setToken] = useState('');
   const [username, setUsername] = useState('admin');
   const [password, setPassword] = useState('admin123456');
   const [stats, setStats] = useState<Stats | null>(null);
-  const [users, setUsers] = useState<AdminUser[]>([]);
-  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
-  const [userName, setUserName] = useState('');
-  const [userEmail, setUserEmail] = useState('');
-  const [userRole, setUserRole] = useState('editor');
-  const [userStatus, setUserStatus] = useState('active');
-  const [noticeTitle, setNoticeTitle] = useState('');
-  const [noticeContent, setNoticeContent] = useState('');
-  const [noticePublished, setNoticePublished] = useState(false);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categoryName, setCategoryName] = useState('');
+  const [newProduct, setNewProduct] = useState({ title: '', categoryId: '', price: '', img: '', moq: '1000 片' });
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
 
-  const loginReady = useMemo(() => username.trim() && password.trim(), [username, password]);
-
-  async function loadAll(nextToken: string) {
-    const [s, u, a] = await Promise.all([
+  async function reload(nextToken: string) {
+    const [s, c, p] = await Promise.all([
       request<Stats>('/api/admin/dashboard/stats', {}, nextToken),
-      request<AdminUser[]>('/api/admin/users', {}, nextToken),
-      request<Announcement[]>('/api/admin/announcements', {}, nextToken),
+      request<Category[]>('/api/admin/categories', {}, nextToken),
+      request<Product[]>('/api/admin/products', {}, nextToken),
     ]);
     setStats(s);
-    setUsers(u);
-    setAnnouncements(a);
+    setCategories(c);
+    setProducts(p);
   }
 
   useEffect(() => {
     const saved = localStorage.getItem('admin_token');
-    if (!saved) return;
-    setToken(saved);
+    if (saved) setToken(saved);
   }, []);
 
   useEffect(() => {
     if (!token) return;
-    setLoading(true);
-    setError('');
-    loadAll(token)
-      .catch((err: Error) => {
-        setError(err.message);
-        setToken('');
-        localStorage.removeItem('admin_token');
-      })
-      .finally(() => setLoading(false));
+    reload(token).catch((err: Error) => setError(err.message));
   }, [token]);
 
   async function onLogin(e: FormEvent) {
     e.preventDefault();
-    if (!loginReady) return;
-    setLoading(true);
     setError('');
     try {
       const data = await request<{ token: string }>('/api/admin/auth/login', {
@@ -112,220 +78,191 @@ export default function AdminApp() {
       localStorage.setItem('admin_token', data.token);
     } catch (err) {
       setError((err as Error).message);
-    } finally {
-      setLoading(false);
     }
   }
 
   async function onLogout() {
-    if (!token) return;
     try {
       await request('/api/admin/auth/logout', { method: 'POST' }, token);
     } catch {}
     setToken('');
-    setStats(null);
-    setUsers([]);
-    setAnnouncements([]);
     localStorage.removeItem('admin_token');
   }
 
-  async function createUser(e: FormEvent) {
+  async function createCategory(e: FormEvent) {
     e.preventDefault();
-    if (!token) return;
     try {
-      setError('');
-      await request('/api/admin/users', {
-        method: 'POST',
-        body: JSON.stringify({ name: userName, email: userEmail, role: userRole, status: userStatus }),
-      }, token);
-      setUserName('');
-      setUserEmail('');
-      await loadAll(token);
+      await request('/api/admin/categories', { method: 'POST', body: JSON.stringify({ name: categoryName }) }, token);
+      setCategoryName('');
+      await reload(token);
     } catch (err) {
       setError((err as Error).message);
     }
   }
 
-  async function toggleUserStatus(user: AdminUser) {
-    if (!token) return;
+  async function updateCategory(id: number, currentName: string) {
+    const nextName = window.prompt('请输入新的分类名称', currentName);
+    if (!nextName || !nextName.trim()) return;
     try {
-      const next = user.status === 'active' ? 'disabled' : 'active';
-      await request(`/api/admin/users/${user.id}`, {
-        method: 'PUT',
-        body: JSON.stringify({ status: next }),
-      }, token);
-      await loadAll(token);
+      await request(`/api/admin/categories/${id}`, { method: 'PUT', body: JSON.stringify({ name: nextName.trim() }) }, token);
+      await reload(token);
     } catch (err) {
       setError((err as Error).message);
     }
   }
 
-  async function removeUser(id: number) {
-    if (!token) return;
+  async function removeCategory(id: number) {
+    if (!window.confirm('确认删除该分类？')) return;
     try {
-      await request(`/api/admin/users/${id}`, { method: 'DELETE' }, token);
-      await loadAll(token);
+      await request(`/api/admin/categories/${id}`, { method: 'DELETE' }, token);
+      await reload(token);
     } catch (err) {
       setError((err as Error).message);
     }
   }
 
-  async function createAnnouncement(e: FormEvent) {
+  async function createProduct(e: FormEvent) {
     e.preventDefault();
-    if (!token) return;
     try {
-      await request('/api/admin/announcements', {
+      await request('/api/admin/products', {
         method: 'POST',
-        body: JSON.stringify({ title: noticeTitle, content: noticeContent, published: noticePublished }),
+        body: JSON.stringify({
+          title: newProduct.title,
+          categoryId: Number(newProduct.categoryId),
+          price: newProduct.price,
+          img: newProduct.img,
+          moq: newProduct.moq,
+          status: 'active',
+        }),
       }, token);
-      setNoticeTitle('');
-      setNoticeContent('');
-      setNoticePublished(false);
-      await loadAll(token);
+      setNewProduct({ title: '', categoryId: '', price: '', img: '', moq: '1000 片' });
+      await reload(token);
     } catch (err) {
       setError((err as Error).message);
     }
   }
 
-  async function toggleAnnouncement(item: Announcement) {
-    if (!token) return;
+  async function toggleProductStatus(item: Product) {
     try {
-      await request(`/api/admin/announcements/${item.id}`, {
+      await request(`/api/admin/products/${item.id}`, {
         method: 'PUT',
-        body: JSON.stringify({ published: !item.published }),
+        body: JSON.stringify({ status: item.status === 'active' ? 'disabled' : 'active' }),
       }, token);
-      await loadAll(token);
+      await reload(token);
     } catch (err) {
       setError((err as Error).message);
     }
   }
 
-  async function removeAnnouncement(id: number) {
-    if (!token) return;
+  async function removeProduct(id: number) {
+    if (!window.confirm('确认删除该产品？')) return;
     try {
-      await request(`/api/admin/announcements/${id}`, { method: 'DELETE' }, token);
-      await loadAll(token);
+      await request(`/api/admin/products/${id}`, { method: 'DELETE' }, token);
+      await reload(token);
     } catch (err) {
       setError((err as Error).message);
     }
+  }
+
+  async function moveProductCategory(item: Product) {
+    const categoryId = window.prompt(`请输入新的分类ID（当前：${item.categoryId}）`, String(item.categoryId));
+    if (!categoryId) return;
+    try {
+      await request(`/api/admin/products/${item.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ categoryId: Number(categoryId) }),
+      }, token);
+      await reload(token);
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
+
+  if (!token) {
+    return (
+      <div style={{ maxWidth: 420, margin: '40px auto', fontFamily: 'system-ui, sans-serif' }}>
+        <h1>后台管理登录</h1>
+        {error && <p style={{ color: '#c00' }}>{error}</p>}
+        <form onSubmit={onLogin} style={{ display: 'grid', gap: 10 }}>
+          <input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="用户名" />
+          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="密码" />
+          <button type="submit">登录</button>
+        </form>
+      </div>
+    );
   }
 
   return (
-    <div style={{ maxWidth: 1080, margin: '0 auto', padding: 20, fontFamily: 'system-ui, sans-serif' }}>
-      <h1>后台管理系统</h1>
-      <p>API Base: {API_BASE}</p>
+    <div style={{ maxWidth: 1100, margin: '0 auto', padding: 20, fontFamily: 'system-ui, sans-serif' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h1>后台管理系统</h1>
+        <button onClick={onLogout}>退出登录</button>
+      </div>
       {error && <p style={{ color: '#c00' }}>错误：{error}</p>}
 
-      {!token ? (
-        <form onSubmit={onLogin} style={{ display: 'grid', gap: 12, maxWidth: 360 }}>
-          <h2>管理员登录</h2>
-          <input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="用户名" />
-          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="密码" />
-          <button type="submit" disabled={!loginReady || loading}>登录</button>
+      <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(5, minmax(0,1fr))', marginBottom: 20 }}>
+        <div style={{ border: '1px solid #ddd', padding: 10 }}>分类数：{stats?.categoryCount ?? 0}</div>
+        <div style={{ border: '1px solid #ddd', padding: 10 }}>产品数：{stats?.productCount ?? 0}</div>
+        <div style={{ border: '1px solid #ddd', padding: 10 }}>管理用户：{stats?.managedUserCount ?? 0}</div>
+        <div style={{ border: '1px solid #ddd', padding: 10 }}>活跃用户：{stats?.activeUserCount ?? 0}</div>
+        <div style={{ border: '1px solid #ddd', padding: 10 }}>已发布公告：{stats?.publishedAnnouncementCount ?? 0}</div>
+      </div>
+
+      <section style={{ marginBottom: 24 }}>
+        <h2>分类管理（会影响前台分类展示）</h2>
+        <form onSubmit={createCategory} style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+          <input required value={categoryName} onChange={(e) => setCategoryName(e.target.value)} placeholder="新分类名称" />
+          <button type="submit">新增分类</button>
         </form>
-      ) : (
-        <>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h2>控制台</h2>
-            <button onClick={onLogout}>退出登录</button>
+        <table width="100%" cellPadding={6} style={{ borderCollapse: 'collapse' }}>
+          <thead><tr><th align="left">ID</th><th align="left">分类名</th><th align="left">操作</th></tr></thead>
+          <tbody>
+            {categories.map((c) => (
+              <tr key={c.id} style={{ borderTop: '1px solid #eee' }}>
+                <td>{c.id}</td><td>{c.name}</td>
+                <td>
+                  <button onClick={() => updateCategory(c.id, c.name)}>重命名</button>{' '}
+                  <button onClick={() => removeCategory(c.id)}>删除</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+
+      <section>
+        <h2>产品管理（会影响前台产品展示）</h2>
+        <form onSubmit={createProduct} style={{ display: 'grid', gap: 8, marginBottom: 12 }}>
+          <input required value={newProduct.title} onChange={(e) => setNewProduct((v) => ({ ...v, title: e.target.value }))} placeholder="产品标题" />
+          <div style={{ display: 'flex', gap: 8 }}>
+            <select required value={newProduct.categoryId} onChange={(e) => setNewProduct((v) => ({ ...v, categoryId: e.target.value }))}>
+              <option value="">选择分类</option>
+              {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+            <input required value={newProduct.price} onChange={(e) => setNewProduct((v) => ({ ...v, price: e.target.value }))} placeholder="价格（如 US$0.2-0.4）" />
+            <input value={newProduct.moq} onChange={(e) => setNewProduct((v) => ({ ...v, moq: e.target.value }))} placeholder="起订量" />
           </div>
-
-          <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', marginBottom: 20 }}>
-            <div style={{ border: '1px solid #ddd', padding: 12 }}>
-              <div>管理用户总数</div>
-              <strong>{stats?.managedUserCount ?? (loading ? '...' : 0)}</strong>
-            </div>
-            <div style={{ border: '1px solid #ddd', padding: 12 }}>
-              <div>活跃用户</div>
-              <strong>{stats?.activeUserCount ?? (loading ? '...' : 0)}</strong>
-            </div>
-            <div style={{ border: '1px solid #ddd', padding: 12 }}>
-              <div>已发布公告</div>
-              <strong>{stats?.publishedAnnouncementCount ?? (loading ? '...' : 0)}</strong>
-            </div>
-          </div>
-
-          <section style={{ marginBottom: 24 }}>
-            <h3>用户管理</h3>
-            <form onSubmit={createUser} style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
-              <input required placeholder="姓名" value={userName} onChange={(e) => setUserName(e.target.value)} />
-              <input required placeholder="邮箱" value={userEmail} onChange={(e) => setUserEmail(e.target.value)} />
-              <select value={userRole} onChange={(e) => setUserRole(e.target.value)}>
-                <option value="editor">editor</option>
-                <option value="admin">admin</option>
-                <option value="viewer">viewer</option>
-              </select>
-              <select value={userStatus} onChange={(e) => setUserStatus(e.target.value)}>
-                <option value="active">active</option>
-                <option value="disabled">disabled</option>
-              </select>
-              <button type="submit">新增用户</button>
-            </form>
-            <table width="100%" cellPadding={6} style={{ borderCollapse: 'collapse' }}>
-              <thead>
-                <tr>
-                  <th align="left">ID</th>
-                  <th align="left">姓名</th>
-                  <th align="left">邮箱</th>
-                  <th align="left">角色</th>
-                  <th align="left">状态</th>
-                  <th align="left">操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                {users.map((u) => (
-                  <tr key={u.id} style={{ borderTop: '1px solid #eee' }}>
-                    <td>{u.id}</td>
-                    <td>{u.name}</td>
-                    <td>{u.email}</td>
-                    <td>{u.role}</td>
-                    <td>{u.status}</td>
-                    <td>
-                      <button onClick={() => toggleUserStatus(u)}>切换状态</button>{' '}
-                      <button onClick={() => removeUser(u.id)}>删除</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </section>
-
-          <section>
-            <h3>公告管理</h3>
-            <form onSubmit={createAnnouncement} style={{ display: 'grid', gap: 8, marginBottom: 10 }}>
-              <input required placeholder="公告标题" value={noticeTitle} onChange={(e) => setNoticeTitle(e.target.value)} />
-              <textarea required placeholder="公告内容" value={noticeContent} onChange={(e) => setNoticeContent(e.target.value)} rows={3} />
-              <label>
-                <input type="checkbox" checked={noticePublished} onChange={(e) => setNoticePublished(e.target.checked)} /> 立即发布
-              </label>
-              <button type="submit">发布公告</button>
-            </form>
-            <table width="100%" cellPadding={6} style={{ borderCollapse: 'collapse' }}>
-              <thead>
-                <tr>
-                  <th align="left">ID</th>
-                  <th align="left">标题</th>
-                  <th align="left">状态</th>
-                  <th align="left">操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                {announcements.map((a) => (
-                  <tr key={a.id} style={{ borderTop: '1px solid #eee' }}>
-                    <td>{a.id}</td>
-                    <td>{a.title}</td>
-                    <td>{a.published ? '已发布' : '草稿'}</td>
-                    <td>
-                      <button onClick={() => toggleAnnouncement(a)}>{a.published ? '设为草稿' : '发布'}</button>{' '}
-                      <button onClick={() => removeAnnouncement(a.id)}>删除</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </section>
-        </>
-      )}
+          <input required value={newProduct.img} onChange={(e) => setNewProduct((v) => ({ ...v, img: e.target.value }))} placeholder="图片 URL" />
+          <button type="submit">新增产品</button>
+        </form>
+        <table width="100%" cellPadding={6} style={{ borderCollapse: 'collapse' }}>
+          <thead>
+            <tr><th align="left">ID</th><th align="left">标题</th><th align="left">分类</th><th align="left">价格</th><th align="left">状态</th><th align="left">操作</th></tr>
+          </thead>
+          <tbody>
+            {products.map((p) => (
+              <tr key={p.id} style={{ borderTop: '1px solid #eee' }}>
+                <td>{p.id}</td><td>{p.title}</td><td>{p.category}</td><td>{p.price}</td><td>{p.status}</td>
+                <td>
+                  <button onClick={() => moveProductCategory(p)}>改分类</button>{' '}
+                  <button onClick={() => toggleProductStatus(p)}>{p.status === 'active' ? '下架' : '上架'}</button>{' '}
+                  <button onClick={() => removeProduct(p.id)}>删除</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
     </div>
   );
 }

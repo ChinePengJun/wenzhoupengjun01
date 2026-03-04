@@ -41,40 +41,8 @@ export default function App() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isProductsExpanded, setIsProductsExpanded] = useState(false);
 
-  const categories = ["全部", "3D滴胶贴纸", "不干胶标签", "纸袋、包装盒定制"];
-
-  const products = [
-    { 
-      id: 1, 
-      title: "CY CA-1518 定制3D打印环氧树脂防水PET材料手机贴纸流行吻切式包装标签", 
-      category: "3D滴胶贴纸", 
-      price: "US$0.20-0.23", 
-      img: "https://s.alicdn.com/@sc04/kf/H1e4ecf49828942c8aeee85fe6cb532ef1/CY-CA-1518-3D-PET-.jpg?hasNWGrade=1",
-      moq: "3000 pieces",
-      tiers: [
-        { range: "3,000 - 4,999 pieces", price: "US$0.23" },
-        { range: "5,000 - 9,999 pieces", price: "US$0.21" },
-        { range: ">= 10,000 pieces", price: "US$0.20" }
-      ],
-      specs: {
-        color: "Colorful",
-        size: "Customized",
-        material: "聚乙烯对苯二甲酸酯（塑料）",
-        type: "3D Sticker",
-        feature: "waterproof",
-        printing: "Customized",
-        shape: "Customized",
-        brand: "CY"
-      }
-    },
-    { id: 2, title: "批发CY品牌CA-1513型号定制印刷徽标设计3D防水礼品工艺手机壳贴纸A6尺寸PET环氧树脂", category: "3D滴胶贴纸", price: "US$0.20-0.30", img: "https://s.alicdn.com/@sc04/kf/Hb1630189e9a44b0db57da0c63bc03f0fs/-CY-CA-1513-3D-A6-PET.jpg?hasNWGrade=1", moq: "3000 pieces" },
-    { id: 3, title: "定制 A6 尺寸 3D 圆顶凝胶水晶徽标贴纸 UV 印刷防水 UV 装饰手机后盖礼品及工艺品", category: "不干胶标签", price: "US$0.18-0.28", img: "https://s.alicdn.com/@sc04/kf/H9639f9cf7f0b4c418df3e5750eace15fU/-A6-3D-UV-UV-.jpg?hasNWGrade=1", moq: "3000 pieces" },
-    { id: 4, title: "定制时尚3D凝胶标志手机套宠物树脂贴纸DIY不干胶防水圆顶水晶环氧标签包装", category: "3D滴胶贴纸", price: "US$0.22-0.35", img: "https://s.alicdn.com/@sc04/kf/H9639f9cf7f0b4c418df3e5750eace15fU/-A6-3D-UV-UV-.jpg?hasNWGrade=1", moq: "3000 pieces" },
-    { id: 5, title: "定制环保防水3D树脂环氧A6软胶圆顶PET材料印刷包装标签，适用于礼品工艺贴纸", category: "3D滴胶贴纸", price: "US$0.50-1.20", img: "https://s.alicdn.com/@sc04/kf/H3b21fa3271bb4574958fe2553eb6591cB/-3D-DIY-.jpg?hasNWGrade=1", moq: "3000 pieces" },
-    { id: 6, title: "定制徽标 A6 3D PET 贴纸防水防油 UV 印刷全息定制形状圆顶凝胶礼品工艺装饰", category: "3D滴胶贴纸", price: "US$0.15-0.30", img: "https://s.alicdn.com/@sc04/kf/H97d0e262269f474c863bcfada5d6222cH/-3D-A6-PET-.jpg_480x480.jpg?hasNWGrade=1", moq: "3000 pieces" },
-    { id: 7, title: "CY CA-1502 定制自粘防水3D树脂圆顶环氧贴纸独特形状PET材质包装标签标志", category: "3D滴胶贴纸", price: "US$0.30-0.50", img: "https://s.alicdn.com/@sc04/kf/H8f8c11ed71a74298aa50db6b2593720c8/-A6-3D-PET-UV-.jpg_480x480.jpg?hasNWGrade=1", moq: "3000 pieces" },
-    { id: 8, title: "批发 A6 尺寸 3D PET 凸纹防水手机壳笔记本电脑装饰品可定制印刷模切手机贴纸批量供应", category: "3D滴胶贴纸", price: "US$0.25-0.45", img: "https://s.alicdn.com/@sc04/kf/H66e4ca4b812d45db9e2eead9d85f3dd19/CY-CA-1502-3D-PET-.jpg_480x480.jpg?hasNWGrade=1", moq: "3000 pieces" },
-  ];
+  const [categories, setCategories] = useState<string[]>(["全部"]);
+  const [products, setProducts] = useState<any[]>([]);
 
   const handleProductClick = (product: any) => {
     setSelectedProduct(product);
@@ -82,9 +50,23 @@ export default function App() {
     window.scrollTo(0, 0);
   };
 
-  const filteredProducts = activeCategory === "全部" 
-    ? products 
+  const filteredProducts = activeCategory === "全部"
+    ? products
     : products.filter(p => p.category === activeCategory);
+
+  useEffect(() => {
+    fetch(`${(import.meta.env.VITE_ADMIN_API_BASE || 'http://localhost:3100').replace(/\/$/, '')}/api/catalog`)
+      .then((res) => res.json())
+      .then((data) => {
+        const nextCategories = ["全部", ...((data.categories || []).map((item: any) => item.name))];
+        setCategories(nextCategories);
+        setProducts(data.products || []);
+      })
+      .catch(() => {
+        setCategories(["全部"]);
+        setProducts([]);
+      });
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -1258,9 +1240,11 @@ export default function App() {
             <div>
               <h4 className="text-lg font-bold mb-8 text-hanke-red">产品中心</h4>
               <ul className="space-y-4 text-gray-400 text-sm">
-                <li><button onClick={() => { setCurrentPage("products"); setActiveCategory("3D滴胶贴纸"); window.scrollTo(0,0); }} className="hover:text-white transition-colors">3D滴胶贴纸</button></li>
-                <li><button onClick={() => { setCurrentPage("products"); setActiveCategory("不干胶标签"); window.scrollTo(0,0); }} className="hover:text-white transition-colors">不干胶标签</button></li>
-                <li><button onClick={() => { setCurrentPage("products"); setActiveCategory("纸袋、包装盒定制"); window.scrollTo(0,0); }} className="hover:text-white transition-colors">纸袋、包装盒定制</button></li>
+                {categories.filter((cat) => cat !== "全部").map((cat) => (
+                  <li key={cat}>
+                    <button onClick={() => { setCurrentPage("products"); setActiveCategory(cat); window.scrollTo(0,0); }} className="hover:text-white transition-colors">{cat}</button>
+                  </li>
+                ))}
               </ul>
             </div>
 

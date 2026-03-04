@@ -51,3 +51,6 @@ npm run dev
 - `GET /api/admin/dashboard/stats` 控制台统计
 - `GET/POST/PUT/DELETE /api/admin/users` 用户管理
 - `GET/POST/PUT/DELETE /api/admin/announcements` 公告管理
+- `GET/POST/PUT/DELETE /api/admin/categories` 分类管理（影响前台）
+- `GET/POST/PUT/DELETE /api/admin/products` 产品管理（影响前台）
+- `GET /api/catalog` 前台产品/分类读取接口
