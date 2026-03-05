@@ -28,6 +28,26 @@ const DEFAULT_SITE_SETTINGS = {
   phone: '+86-131 6635 1888',
   email: 'wzyunxipack@qq.com',
   copyright: '© 云浠（温州）包装有限公司 版权所有',
+  defaultLanguage: 'zh',
+  supportedLanguages: 'zh,en',
+  i18nMessages: JSON.stringify({
+    zh: {
+      home: '首页',
+      products: '产品中心',
+      contact: '联系我们',
+      faq: '常见问题解答',
+      keyAttributes: '重要属性',
+      richDetails: '图文详情',
+    },
+    en: {
+      home: 'Home',
+      products: 'Products',
+      contact: 'Contact',
+      faq: 'FAQ',
+      keyAttributes: 'Key Attributes',
+      richDetails: 'Rich Details',
+    },
+  }),
 };
 
 fs.mkdirSync(path.dirname(DB_FILE), { recursive: true });

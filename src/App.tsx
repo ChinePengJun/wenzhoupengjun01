@@ -49,7 +49,27 @@ export default function App() {
     phone: '+86-131 6635 1888',
     email: 'wzyunxipack@qq.com',
     copyright: '© 云浠（温州）包装有限公司 版权所有',
+    defaultLanguage: 'zh',
+    supportedLanguages: 'zh,en',
+    i18nMessages: '{}',
   });
+
+  const [currentLang, setCurrentLang] = useState('zh');
+
+  const messages = (() => {
+    try {
+      return JSON.parse(String(siteSettings.i18nMessages || '{}'));
+    } catch {
+      return {};
+    }
+  })() as Record<string, Record<string, string>>;
+
+  const supportedLanguages = String(siteSettings.supportedLanguages || 'zh,en')
+    .split(',')
+    .map((v) => v.trim())
+    .filter(Boolean);
+
+  const t = (key: string, fallback: string) => messages?.[currentLang]?.[key] || fallback;
 
   const handleProductClick = (product: any) => {
     setSelectedProduct(product);
@@ -97,6 +117,7 @@ export default function App() {
           if (!res.ok) continue;
           const data = await res.json();
           setSiteSettings((prev) => ({ ...prev, ...data }));
+          if (data.defaultLanguage) setCurrentLang(String(data.defaultLanguage));
           return;
         } catch {}
       }
@@ -490,9 +511,9 @@ export default function App() {
           {/* Breadcrumbs & Back Button */}
           <div className="flex items-center justify-between mb-6 md:mb-8">
             <div className="flex items-center gap-2 text-xs md:text-sm text-gray-500 overflow-x-auto whitespace-nowrap no-scrollbar pr-4">
-              <button onClick={() => setCurrentPage("home")} className="hover:text-hanke-red">首页</button>
+              <button onClick={() => setCurrentPage("home")} className="hover:text-hanke-red">{t("home", "首页")}</button>
               <ChevronRight size={12} className="shrink-0" />
-              <button onClick={() => setCurrentPage("products")} className="hover:text-hanke-red">产品中心</button>
+              <button onClick={() => setCurrentPage("products")} className="hover:text-hanke-red">{t("products", "产品中心")}</button>
               <ChevronRight size={12} className="shrink-0" />
               <span className="text-hanke-dark font-medium truncate max-w-[100px] md:max-w-[200px]">{product.title}</span>
             </div>
@@ -678,7 +699,7 @@ export default function App() {
 
           {/* Product Details Content */}
           <div className="bg-white rounded-3xl md:rounded-[40px] shadow-sm border border-gray-100 p-6 md:p-12 mb-12 md:mb-16">
-            <h2 className="text-xl md:text-2xl font-black mb-6 md:mb-8">重要属性</h2>
+            <h2 className="text-xl md:text-2xl font-black mb-6 md:mb-8">{t("keyAttributes", "重要属性")}</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 md:gap-x-16 gap-y-2 md:gap-y-4">
               {Object.entries(product.specs || {}).map(([label, value]) => (
                 <div key={label} className="flex border-b border-gray-50 py-3 md:py-4">
@@ -716,7 +737,7 @@ export default function App() {
             </div>
 
             <div className="mt-16">
-              <h2 className="text-2xl font-black mb-8">图文详情</h2>
+              <h2 className="text-2xl font-black mb-8">{t("richDetails", "图文详情")}</h2>
               <div className="space-y-6 md:space-y-8">
                 {(product.detailContent || []).map((item: any, i: number) => (
                   <div key={i} className="rounded-2xl overflow-hidden border border-gray-100 bg-white">
@@ -739,7 +760,7 @@ export default function App() {
 
               {/* FAQ Section - Netflix Style */}
               <div className="mt-16 md:mt-24">
-                <h2 className="text-2xl md:text-3xl font-black mb-8 text-hanke-dark">常见问题解答</h2>
+                <h2 className="text-2xl md:text-3xl font-black mb-8 text-hanke-dark">{t("faq", "常见问题解答")}</h2>
                 <div className="space-y-2">
                   {[
                     { q: "我们能得到一些样品吗？有收费吗？", a: "是的，你可以从我们的库存中获得可用的样品。真正的样品是免费的，但是你需要承担运费。" },
@@ -1090,20 +1111,23 @@ export default function App() {
           </div>
           
           <div className={`hidden lg:flex items-center gap-8 ${isScrolled || currentPage !== "home" ? "text-hanke-dark" : "text-white"}`}>
-            <button onClick={() => setCurrentPage("home")} className={`nav-link ${currentPage === "home" ? "text-hanke-red" : ""}`}>首页</button>
-            <button onClick={() => setCurrentPage("about")} className={`nav-link ${currentPage === "about" ? "text-hanke-red" : ""}`}>关于我们</button>
-            <button onClick={() => setCurrentPage("products")} className={`nav-link ${currentPage === "products" ? "text-hanke-red" : ""}`}>产品中心</button>
-            <button onClick={() => setCurrentPage("contact")} className={`nav-link ${currentPage === "contact" ? "text-hanke-red" : ""}`}>联系我们</button>
+            <button onClick={() => setCurrentPage("home")} className={`nav-link ${currentPage === "home" ? "text-hanke-red" : ""}`}>{t("home", "首页")}</button>
+            <button onClick={() => setCurrentPage("about")} className={`nav-link ${currentPage === "about" ? "text-hanke-red" : ""}`}>{t("about", "关于我们")}</button>
+            <button onClick={() => setCurrentPage("products")} className={`nav-link ${currentPage === "products" ? "text-hanke-red" : ""}`}>{t("products", "产品中心")}</button>
+            <button onClick={() => setCurrentPage("contact")} className={`nav-link ${currentPage === "contact" ? "text-hanke-red" : ""}`}>{t("contact", "联系我们")}</button>
           </div>
 
           <div className="flex items-center gap-2 md:gap-4">
             <button className={`p-2 rounded-full transition-colors ${isScrolled || currentPage !== "home" ? "hover:bg-gray-100 text-hanke-dark" : "hover:bg-white/10 text-white"}`}>
               <Search size={18} className="md:w-5 md:h-5" />
             </button>
-            <div className={`hidden sm:flex items-center gap-1 px-3 py-1 rounded-full border transition-colors cursor-pointer ${isScrolled || currentPage !== "home" ? "border-gray-200 text-hanke-dark hover:bg-gray-50" : "border-white/30 text-white hover:bg-white/10"}`}>
+            <div className={`hidden sm:flex items-center gap-2 px-3 py-1 rounded-full border transition-colors ${isScrolled || currentPage !== "home" ? "border-gray-200 text-hanke-dark bg-white" : "border-white/30 text-white bg-black/10"}`}>
               <Globe size={14} />
-              <span className="text-[10px] font-medium uppercase tracking-wider">CN</span>
-              <ChevronRight size={10} className="rotate-90" />
+              <select className="bg-transparent text-[10px] font-medium uppercase tracking-wider outline-none" value={currentLang} onChange={(e) => setCurrentLang(e.target.value)}>
+                {supportedLanguages.map((lang) => (
+                  <option key={lang} value={lang} className="text-hanke-dark">{lang}</option>
+                ))}
+              </select>
             </div>
             <button 
               onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -1124,11 +1148,18 @@ export default function App() {
               className="lg:hidden bg-white border-t border-gray-100 overflow-hidden"
             >
               <div className="flex flex-col p-4 gap-2">
+                <div className="px-2 pb-2">
+                  <select className="w-full rounded-xl border border-gray-200 px-3 py-2" value={currentLang} onChange={(e) => setCurrentLang(e.target.value)}>
+                    {supportedLanguages.map((lang) => (
+                      <option key={lang} value={lang}>{lang.toUpperCase()}</option>
+                    ))}
+                  </select>
+                </div>
                 {[
-                  { id: "home", label: "首页" },
-                  { id: "about", label: "关于我们" },
-                  { id: "products", label: "产品中心", subItems: categories },
-                  { id: "contact", label: "联系我们" },
+                  { id: "home", label: t("home", "首页") },
+                  { id: "about", label: t("about", "关于我们") },
+                  { id: "products", label: t("products", "产品中心"), subItems: categories },
+                  { id: "contact", label: t("contact", "联系我们") },
                 ].map((item) => (
                   <div key={item.id} className="flex flex-col">
                     <div className="flex items-center">
@@ -1231,7 +1262,7 @@ export default function App() {
             </div>
 
             <div>
-              <h4 className="text-lg font-bold mb-8 text-hanke-red">产品中心</h4>
+              <h4 className="text-lg font-bold mb-8 text-hanke-red">{t("products", "产品中心")}</h4>
               <ul className="space-y-4 text-gray-400 text-sm">
                 {categories.filter((cat) => cat !== "全部").map((cat) => (
                   <li key={cat}>

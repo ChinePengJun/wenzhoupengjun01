@@ -130,6 +130,9 @@ export default function AdminApp() {
     phone: '+86-131 6635 1888',
     email: 'wzyunxipack@qq.com',
     copyright: '© 云浠（温州）包装有限公司 版权所有',
+    defaultLanguage: 'zh',
+    supportedLanguages: 'zh,en',
+    i18nMessages: '{"zh":{"home":"首页"},"en":{"home":"Home"}}',
   });
 
   const activeProducts = useMemo(() => products.filter((p) => p.status === 'active').length, [products]);
@@ -463,6 +466,9 @@ export default function AdminApp() {
                   <input className={inputCls} value={siteSettings.email} onChange={(e) => setSiteSettings((v) => ({ ...v, email: e.target.value }))} placeholder="联系邮箱" />
                   <input className={inputCls} value={siteSettings.address} onChange={(e) => setSiteSettings((v) => ({ ...v, address: e.target.value }))} placeholder="公司地址" />
                   <input className={`${inputCls} md:col-span-2`} value={siteSettings.copyright} onChange={(e) => setSiteSettings((v) => ({ ...v, copyright: e.target.value }))} placeholder="版权文案" />
+                  <input className={inputCls} value={siteSettings.defaultLanguage} onChange={(e) => setSiteSettings((v) => ({ ...v, defaultLanguage: e.target.value }))} placeholder="默认语言（如 zh）" />
+                  <input className={inputCls} value={siteSettings.supportedLanguages} onChange={(e) => setSiteSettings((v) => ({ ...v, supportedLanguages: e.target.value }))} placeholder="支持语言（逗号分隔，如 zh,en,ja）" />
+                  <textarea className={`${inputCls} md:col-span-2`} rows={10} value={siteSettings.i18nMessages} onChange={(e) => setSiteSettings((v) => ({ ...v, i18nMessages: e.target.value }))} placeholder='多语种文案 JSON，例如 {"zh":{"home":"首页"},"en":{"home":"Home"}}' />
                   <button className={`${btnCls} w-fit`} type="submit">保存站点信息</button>
                 </form>
               </section>
