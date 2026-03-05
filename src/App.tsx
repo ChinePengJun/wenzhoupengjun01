@@ -36,12 +36,13 @@ import { useState, useEffect, useRef } from "react";
 export default function App() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [currentPage, setCurrentPage] = useState("home");
-  const [activeCategory, setActiveCategory] = useState("全部");
+  const ALL_CATEGORY = "__all__";
+  const [activeCategory, setActiveCategory] = useState(ALL_CATEGORY);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isProductsExpanded, setIsProductsExpanded] = useState(false);
 
-  const [categories, setCategories] = useState<string[]>(["全部"]);
+  const [categories, setCategories] = useState<string[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [siteSettings, setSiteSettings] = useState({
     companyName: '云浠（温州）包装有限公司',
@@ -74,13 +75,27 @@ export default function App() {
     return messages?.[currentLang]?.[key] || messages?.[defaultLang]?.[key] || messages?.zh?.[key] || fallback;
   };
 
+  const ltext = (value: unknown) => {
+    if (typeof value !== 'string') return String(value ?? '');
+    const raw = value.trim();
+    if (!raw.startsWith('{') || !raw.endsWith('}')) return value;
+    try {
+      const obj = JSON.parse(raw) as Record<string, string>;
+      if (!obj || Array.isArray(obj)) return value;
+      const defaultLang = String(siteSettings.defaultLanguage || 'zh');
+      return obj[currentLang] || obj[defaultLang] || obj.zh || Object.values(obj)[0] || value;
+    } catch {
+      return value;
+    }
+  };
+
   const handleProductClick = (product: any) => {
     setSelectedProduct(product);
     setCurrentPage("detail");
     window.scrollTo(0, 0);
   };
 
-  const filteredProducts = activeCategory === "全部"
+  const filteredProducts = activeCategory === ALL_CATEGORY
     ? products
     : products.filter(p => p.category === activeCategory);
 
@@ -96,14 +111,14 @@ export default function App() {
           const data = await res.json();
           const hasData = Array.isArray(data.products) && data.products.length > 0;
           if (!hasData) continue;
-          const nextCategories = ["全部", ...((data.categories || []).map((item: any) => item.name))];
+          const nextCategories = (data.categories || []).map((item: any) => item.name);
           setCategories(nextCategories);
           setProducts(data.products || []);
           return;
         } catch {}
       }
 
-      setCategories(["全部"]);
+      setCategories([]);
       setProducts([]);
     })();
   }, []);
@@ -222,7 +237,7 @@ export default function App() {
               </p>
               <div className="flex items-center gap-4">
                 <button onClick={() => { setCurrentPage("products"); window.scrollTo(0,0); }} className="bg-hanke-red hover:bg-red-700 text-white px-8 py-4 rounded-full font-bold transition-all flex items-center gap-2 group">
-                  立即咨询
+                  {t("inquiryNow", "立即咨询")}
                   <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
                 </button>
               </div>
@@ -278,13 +293,13 @@ export default function App() {
                 <div className="aspect-square bg-gray-50 overflow-hidden relative">
                   <img 
                     src={product.img} 
-                    alt={product.title} 
+                    alt={ltext(product.title)} 
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     referrerPolicy="no-referrer"
                   />
                 </div>
                 <div className="p-3 md:p-4">
-                  <h3 className="text-xs md:text-sm font-medium mb-2 line-clamp-2 h-8 md:h-10">{product.title}</h3>
+                  <h3 className="text-xs md:text-sm font-medium mb-2 line-clamp-2 h-8 md:h-10">{ltext(product.title)}</h3>
                   <p className="text-hanke-red font-bold text-sm md:text-base">{product.price}</p>
                   <p className="text-[10px] text-gray-400 mt-1">最小起订量: {product.moq || "1000 片"}</p>
                 </div>
@@ -327,9 +342,9 @@ export default function App() {
       {/* Page Header */}
       <section className="bg-hanke-dark py-16 text-white">
         <div className="max-w-7xl mx-auto px-4 text-center">
-          <h1 className="text-4xl md:text-5xl font-black mb-4">产品中心</h1>
+          <h1 className="text-4xl md:text-5xl font-black mb-4">{t("products", "产品中心")}</h1>
           <p className="text-gray-400 max-w-2xl mx-auto">
-            探索我们多样化的3D滴胶贴纸系列。我们提供从设计到生产的全方位定制服务，满足您的品牌展示需求。
+            {t("catalogIntro", "探索我们多样化的3D滴胶贴纸系列。我们提供从设计到生产的全方位定制服务，满足您的品牌展示需求。")}
           </p>
         </div>
       </section>
@@ -340,7 +355,7 @@ export default function App() {
           <div className="bg-white p-4 md:p-6 rounded-2xl shadow-sm lg:sticky lg:top-24">
             <h3 className="font-bold text-lg mb-4 lg:mb-6 flex items-center gap-2">
               <div className="w-1 h-5 bg-hanke-red"></div>
-              产品分类
+              {t("productCategories", "产品分类")}
             </h3>
             <div className="flex lg:flex-col gap-2 overflow-x-auto lg:overflow-x-visible no-scrollbar pb-2 lg:pb-0 -mx-4 px-4 lg:mx-0 lg:px-0">
               <div className="lg:hidden flex items-center justify-center w-10 h-10 rounded-xl bg-gray-50 text-gray-400 shrink-0 border border-gray-100">
@@ -348,7 +363,7 @@ export default function App() {
               </div>
               {categories.map(cat => (
                 <button
-                  key={cat}
+                  key={ltext(cat)}
                   onClick={() => setActiveCategory(cat)}
                   className={`text-left px-4 py-2 md:py-3 rounded-xl transition-all font-medium whitespace-nowrap lg:whitespace-normal ${
                     activeCategory === cat 
@@ -356,16 +371,16 @@ export default function App() {
                       : "text-gray-600 hover:bg-gray-100"
                   }`}
                 >
-                  {cat}
+                  {ltext(cat)}
                 </button>
               ))}
             </div>
 
             <div className="hidden lg:block mt-12 p-6 bg-blue-50 rounded-2xl border border-blue-100">
-              <h4 className="font-bold text-blue-900 mb-2">需要定制？</h4>
-              <p className="text-sm text-blue-700 mb-4">上传您的设计，我们为您提供免费打样服务。</p>
+              <h4 className="font-bold text-blue-900 mb-2">{t("needCustom", "需要定制？")}</h4>
+              <p className="text-sm text-blue-700 mb-4">{t("customHint", "上传您的设计，我们为您提供免费打样服务。")}</p>
               <button className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold text-sm hover:bg-blue-700 transition-colors">
-                立即咨询
+                {t("inquiryNow", "立即咨询")}
               </button>
             </div>
           </div>
@@ -374,20 +389,20 @@ export default function App() {
         {/* Product Grid */}
         <div className="flex-grow">
           <div className="flex items-center justify-between mb-8">
-            <p className="text-gray-500">共找到 <span className="text-hanke-dark font-bold">{filteredProducts.length}</span> 款产品</p>
+            <p className="text-gray-500">{t("foundProducts", "共找到")} <span className="text-hanke-dark font-bold">{filteredProducts.length}</span> {t("productCountUnit", "款产品")}</p>
             <div className="flex items-center gap-2 text-sm">
-              <span className="text-gray-400">排序:</span>
+              <span className="text-gray-400">{t("sortBy", "排序")}:</span>
               <select className="bg-transparent font-bold text-hanke-dark outline-none cursor-pointer">
-                <option>默认排序</option>
-                <option>最新发布</option>
-                <option>价格从低到高</option>
+                <option>{t("defaultSort", "默认排序")}</option>
+                <option>{t("latest", "最新发布")}</option>
+                <option>{t("priceAsc", "价格从低到高")}</option>
               </select>
             </div>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-8">
             {filteredProducts.length === 0 && (
-              <div className="col-span-full text-center py-16 text-gray-400">暂无产品数据，请在后台（3000端口）维护并发布产品。</div>
+              <div className="col-span-full text-center py-16 text-gray-400">{t("noProducts", "暂无产品数据，请在后台（3000端口）维护并发布产品。")}</div>
             )}
             {filteredProducts.map((product) => (
               <motion.div 
@@ -401,17 +416,17 @@ export default function App() {
                 <div className="aspect-square overflow-hidden relative">
                   <img 
                     src={product.img} 
-                    alt={product.title} 
+                    alt={ltext(product.title)} 
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                     referrerPolicy="no-referrer"
                   />
                   <div className="absolute top-2 left-2 md:top-4 md:left-4 bg-white/90 backdrop-blur-sm px-2 py-0.5 md:px-3 md:py-1 rounded-full text-[8px] md:text-[10px] font-bold text-hanke-red uppercase tracking-wider shadow-sm">
-                    {product.category}
+                    {ltext(product.category)}
                   </div>
                 </div>
                 <div className="p-3 md:p-6">
                   <h3 className="font-bold text-hanke-dark mb-1 md:mb-2 line-clamp-2 h-8 md:h-12 group-hover:text-hanke-red transition-colors text-xs md:text-base">
-                    {product.title}
+                    {ltext(product.title)}
                   </h3>
                   <div className="flex items-center justify-between mt-2 md:mt-4">
                     <div>
@@ -522,7 +537,7 @@ export default function App() {
               <ChevronRight size={12} className="shrink-0" />
               <button onClick={() => setCurrentPage("products")} className="hover:text-hanke-red">{t("products", "产品中心")}</button>
               <ChevronRight size={12} className="shrink-0" />
-              <span className="text-hanke-dark font-medium truncate max-w-[100px] md:max-w-[200px]">{product.title}</span>
+              <span className="text-hanke-dark font-medium truncate max-w-[100px] md:max-w-[200px]">{ltext(product.title)}</span>
             </div>
             <button 
               onClick={() => setCurrentPage("products")}
@@ -574,7 +589,7 @@ export default function App() {
                         <div className="w-full h-full flex items-center justify-center bg-white">
                           <img 
                             src={productMedia[currentMediaIdx].url} 
-                            alt={product.title} 
+                            alt={ltext(product.title)} 
                             className="w-full h-full md:w-[520px] md:h-[520px] object-cover" 
                             referrerPolicy="no-referrer" 
                           />
@@ -643,7 +658,7 @@ export default function App() {
             <div className="lg:col-span-4">
               <div className="mb-4 md:mb-6">
                 <h1 className="text-xl md:text-3xl font-black text-hanke-dark leading-tight">
-                  {product.title}
+                  {ltext(product.title)}
                 </h1>
               </div>
 
@@ -691,8 +706,8 @@ export default function App() {
                 </div>
 
                 <div className="hidden md:grid grid-cols-2 gap-3 md:gap-4 mt-8 md:mt-12">
-                  <button className="bg-hanke-red text-white py-3 md:py-4 rounded-full font-bold text-sm md:text-base hover:bg-red-700 transition-all shadow-lg shadow-red-200">发送询盘</button>
-                  <button className="border-2 border-hanke-dark text-hanke-dark py-3 md:py-4 rounded-full font-bold text-sm md:text-base hover:bg-hanke-dark hover:text-white transition-all">联系商家</button>
+                  <button className="bg-hanke-red text-white py-3 md:py-4 rounded-full font-bold text-sm md:text-base hover:bg-red-700 transition-all shadow-lg shadow-red-200">{t("sendInquiry", "发送询盘")}</button>
+                  <button className="border-2 border-hanke-dark text-hanke-dark py-3 md:py-4 rounded-full font-bold text-sm md:text-base hover:bg-hanke-dark hover:text-white transition-all">{t("contactSeller", "联系商家")}</button>
                 </div>
               </div>
             </div>
@@ -700,8 +715,8 @@ export default function App() {
 
           {/* Mobile Sticky Footer */}
           <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 p-4 z-50 flex gap-3 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
-            <button className="flex-1 bg-hanke-red text-white py-3 rounded-full font-bold text-sm shadow-lg shadow-red-100">发送询盘</button>
-            <button className="flex-1 border-2 border-hanke-dark text-hanke-dark py-3 rounded-full font-bold text-sm">联系商家</button>
+            <button className="flex-1 bg-hanke-red text-white py-3 rounded-full font-bold text-sm shadow-lg shadow-red-100">{t("sendInquiry", "发送询盘")}</button>
+            <button className="flex-1 border-2 border-hanke-dark text-hanke-dark py-3 rounded-full font-bold text-sm">{t("contactSeller", "联系商家")}</button>
           </div>
 
           {/* Product Details Content */}
@@ -715,12 +730,12 @@ export default function App() {
                 </div>
               ))}
               {!Object.keys(product.specs || {}).length && (
-                <div className="text-gray-400 text-sm">暂无重要属性，请在后台产品详情中配置 specs。</div>
+                <div className="text-gray-400 text-sm">{t("noSpecs", "暂无重要属性，请在后台产品详情中配置 specs。")}</div>
               )}
             </div>
 
             <div className="mt-16">
-              <h2 className="text-2xl font-black mb-8">交货时间</h2>
+              <h2 className="text-2xl font-black mb-8">{t("deliveryTime", "交货时间")}</h2>
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
@@ -760,7 +775,7 @@ export default function App() {
                   </div>
                 ))}
                 {!(product.detailContent || []).length && (
-                  <div className="text-gray-400 text-sm">暂无图文详情，请在后台上传图文详情内容。</div>
+                  <div className="text-gray-400 text-sm">{t("noRichDetails", "暂无图文详情，请在后台上传图文详情内容。")}</div>
                 )}
               </div>
             </div>
@@ -817,16 +832,16 @@ export default function App() {
 
           {/* Recommendations */}
           <section>
-            <h2 className="text-3xl font-black mb-12">其他推荐</h2>
+            <h2 className="text-3xl font-black mb-12">{t("otherRecommendations", "其他推荐")}</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
               {products.slice(0, 4).map((p) => (
                 <div key={p.id} onClick={() => handleProductClick(p)} className="group cursor-pointer">
                   <div className="aspect-square rounded-2xl overflow-hidden mb-4 shadow-sm">
-                    <img src={p.img} alt={p.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" referrerPolicy="no-referrer" />
+                    <img src={p.img} alt={ltext(p.title)} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" referrerPolicy="no-referrer" />
                   </div>
-                  <h4 className="font-bold text-sm mb-2 line-clamp-2 h-10 group-hover:text-hanke-red transition-colors">{p.title}</h4>
+                  <h4 className="font-bold text-sm mb-2 line-clamp-2 h-10 group-hover:text-hanke-red transition-colors">{ltext(p.title)}</h4>
                   <p className="text-hanke-red font-black">{p.price}</p>
-                  <p className="text-[10px] text-gray-400 mt-1">MOQ: 3000 pieces</p>
+                  <p className="text-[10px] text-gray-400 mt-1">{t("moq", "MOQ")}: 3000 pieces</p>
                 </div>
               ))}
             </div>
@@ -1204,18 +1219,18 @@ export default function App() {
                             className="overflow-hidden bg-gray-50/50 rounded-xl mx-2 mb-2"
                           >
                             <div className="flex flex-col p-2 gap-1">
-                              {item.subItems.map((sub) => (
+                              {[{ label: t("all", "全部"), value: ALL_CATEGORY }, ...item.subItems.map((sub) => ({ label: ltext(sub), value: sub }))].map((subItem) => (
                                 <button
-                                  key={sub}
+                                  key={subItem.value}
                                   onClick={() => {
                                     setCurrentPage("products");
-                                    setActiveCategory(sub);
+                                    setActiveCategory(subItem.value);
                                     setIsMenuOpen(false);
                                     window.scrollTo(0, 0);
                                   }}
-                                  className={`text-left px-6 py-3 rounded-lg text-sm font-medium transition-colors ${activeCategory === sub && currentPage === "products" ? "text-hanke-red bg-white shadow-sm" : "text-gray-500 hover:bg-white"}`}
+                                  className={`text-left px-6 py-3 rounded-lg text-sm font-medium transition-colors ${activeCategory === subItem.value && currentPage === "products" ? "text-hanke-red bg-white shadow-sm" : "text-gray-500 hover:bg-white"}`}
                                 >
-                                  {sub}
+                                  {subItem.label}
                                 </button>
                               ))}
                             </div>
@@ -1271,9 +1286,9 @@ export default function App() {
             <div>
               <h4 className="text-lg font-bold mb-8 text-hanke-red">{t("products", "产品中心")}</h4>
               <ul className="space-y-4 text-gray-400 text-sm">
-                {categories.filter((cat) => cat !== "全部").map((cat) => (
-                  <li key={cat}>
-                    <button onClick={() => { setCurrentPage("products"); setActiveCategory(cat); window.scrollTo(0,0); }} className="hover:text-white transition-colors">{cat}</button>
+                {categories.map((cat) => (
+                  <li key={ltext(cat)}>
+                    <button onClick={() => { setCurrentPage("products"); setActiveCategory(cat); window.scrollTo(0,0); }} className="hover:text-white transition-colors">{ltext(cat)}</button>
                   </li>
                 ))}
               </ul>
