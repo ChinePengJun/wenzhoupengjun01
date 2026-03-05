@@ -60,6 +60,7 @@ function enrichProduct(product) {
     tiers: safeParseJson(product.tiers_json, []),
     thumbnails: safeParseJson(product.thumbnails_json, []),
     videoUrl: product.video_url || '',
+    detailContent: safeParseJson(product.detail_content_json, []),
   };
 }
 
@@ -110,6 +111,7 @@ function initDatabase() {
       tiers_json TEXT NOT NULL DEFAULT '[]',
       thumbnails_json TEXT NOT NULL DEFAULT '[]',
       video_url TEXT NOT NULL DEFAULT '',
+      detail_content_json TEXT NOT NULL DEFAULT '[]',
       status TEXT NOT NULL DEFAULT 'active',
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -129,6 +131,7 @@ function initDatabase() {
   try { db.exec("ALTER TABLE products ADD COLUMN tiers_json TEXT NOT NULL DEFAULT '[]'"); } catch {}
   try { db.exec("ALTER TABLE products ADD COLUMN thumbnails_json TEXT NOT NULL DEFAULT '[]'"); } catch {}
   try { db.exec("ALTER TABLE products ADD COLUMN video_url TEXT NOT NULL DEFAULT ''"); } catch {}
+  try { db.exec("ALTER TABLE products ADD COLUMN detail_content_json TEXT NOT NULL DEFAULT '[]'"); } catch {}
 
   const adminExists = db.prepare('SELECT id FROM admins WHERE username = ?').get(ADMIN_SEED_USERNAME);
   if (!adminExists) {
@@ -184,8 +187,8 @@ function initDatabase() {
     ];
 
     const insertProduct = db.prepare(
-      `INSERT INTO products(title, category_id, price, img, moq, description, specs_json, tiers_json, thumbnails_json, video_url, status, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, '{}', '[]', '[]', '', 'active', datetime('now'), datetime('now'))`,
+      `INSERT INTO products(title, category_id, price, img, moq, description, specs_json, tiers_json, thumbnails_json, video_url, detail_content_json, status, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, '{}', '[]', '[]', '', '[]', 'active', datetime('now'), datetime('now'))`,
     );
 
     products.forEach((item) => {
@@ -227,7 +230,7 @@ function getCatalog() {
   const categories = db.prepare('SELECT id, name FROM product_categories ORDER BY id ASC').all();
   const products = db
     .prepare(
-      `SELECT p.id, p.title, p.price, p.img, p.moq, p.description, p.specs_json, p.tiers_json, p.thumbnails_json, p.video_url, p.status,
+      `SELECT p.id, p.title, p.price, p.img, p.moq, p.description, p.specs_json, p.tiers_json, p.thumbnails_json, p.video_url, p.detail_content_json, p.status,
               p.category_id as categoryId, c.name as category
        FROM products p
        INNER JOIN product_categories c ON c.id = p.category_id
@@ -395,7 +398,7 @@ app.delete('/api/admin/categories/:id', authRequired, (req, res) => {
 app.get('/api/admin/products', authRequired, (_req, res) => {
   const rows = db
     .prepare(
-      `SELECT p.id, p.title, p.price, p.img, p.moq, p.description, p.specs_json, p.tiers_json, p.thumbnails_json, p.video_url, p.status,
+      `SELECT p.id, p.title, p.price, p.img, p.moq, p.description, p.specs_json, p.tiers_json, p.thumbnails_json, p.video_url, p.detail_content_json, p.status,
               p.category_id as categoryId, c.name as category, p.created_at, p.updated_at
        FROM products p
        INNER JOIN product_categories c ON c.id = p.category_id
@@ -418,6 +421,7 @@ app.post('/api/admin/products', authRequired, (req, res) => {
     tiers = [],
     thumbnails = [],
     videoUrl = '',
+    detailContent = [],
     status = 'active',
   } = req.body || {};
 
@@ -430,8 +434,8 @@ app.post('/api/admin/products', authRequired, (req, res) => {
 
   const result = db
     .prepare(
-      `INSERT INTO products(title, category_id, price, img, moq, description, specs_json, tiers_json, thumbnails_json, video_url, status, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
+      `INSERT INTO products(title, category_id, price, img, moq, description, specs_json, tiers_json, thumbnails_json, video_url, detail_content_json, status, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
     )
     .run(
       title,
@@ -444,12 +448,13 @@ app.post('/api/admin/products', authRequired, (req, res) => {
       JSON.stringify(Array.isArray(tiers) ? tiers : []),
       JSON.stringify(Array.isArray(thumbnails) ? thumbnails : []),
       String(videoUrl || ''),
+      JSON.stringify(Array.isArray(detailContent) ? detailContent : []),
       status === 'disabled' ? 'disabled' : 'active',
     );
 
   const row = db
     .prepare(
-      `SELECT p.id, p.title, p.price, p.img, p.moq, p.description, p.specs_json, p.tiers_json, p.thumbnails_json, p.video_url, p.status,
+      `SELECT p.id, p.title, p.price, p.img, p.moq, p.description, p.specs_json, p.tiers_json, p.thumbnails_json, p.video_url, p.detail_content_json, p.status,
               p.category_id as categoryId, c.name as category, p.created_at, p.updated_at
        FROM products p
        INNER JOIN product_categories c ON c.id = p.category_id
@@ -465,14 +470,14 @@ app.put('/api/admin/products/:id', authRequired, (req, res) => {
   const existing = db.prepare('SELECT * FROM products WHERE id = ?').get(id);
   if (!existing) return res.status(404).json({ message: '产品不存在' });
 
-  const { title, categoryId, price, img, moq, description, specs, tiers, thumbnails, videoUrl, status } = req.body || {};
+  const { title, categoryId, price, img, moq, description, specs, tiers, thumbnails, videoUrl, detailContent, status } = req.body || {};
   const targetCategoryId = Number(categoryId ?? existing.category_id);
   const category = db.prepare('SELECT id FROM product_categories WHERE id = ?').get(targetCategoryId);
   if (!category) return res.status(400).json({ message: '分类不存在' });
 
   db.prepare(
     `UPDATE products
-     SET title = ?, category_id = ?, price = ?, img = ?, moq = ?, description = ?, specs_json = ?, tiers_json = ?, thumbnails_json = ?, video_url = ?, status = ?, updated_at = datetime('now')
+     SET title = ?, category_id = ?, price = ?, img = ?, moq = ?, description = ?, specs_json = ?, tiers_json = ?, thumbnails_json = ?, video_url = ?, detail_content_json = ?, status = ?, updated_at = datetime('now')
      WHERE id = ?`,
   ).run(
     title ?? existing.title,
@@ -485,13 +490,14 @@ app.put('/api/admin/products/:id', authRequired, (req, res) => {
     tiers === undefined ? existing.tiers_json : JSON.stringify(Array.isArray(tiers) ? tiers : []),
     thumbnails === undefined ? existing.thumbnails_json : JSON.stringify(Array.isArray(thumbnails) ? thumbnails : []),
     videoUrl ?? existing.video_url,
+    detailContent === undefined ? existing.detail_content_json : JSON.stringify(Array.isArray(detailContent) ? detailContent : []),
     status ?? existing.status,
     id,
   );
 
   const row = db
     .prepare(
-      `SELECT p.id, p.title, p.price, p.img, p.moq, p.description, p.specs_json, p.tiers_json, p.thumbnails_json, p.video_url, p.status,
+      `SELECT p.id, p.title, p.price, p.img, p.moq, p.description, p.specs_json, p.tiers_json, p.thumbnails_json, p.video_url, p.detail_content_json, p.status,
               p.category_id as categoryId, c.name as category, p.created_at, p.updated_at
        FROM products p INNER JOIN product_categories c ON c.id = p.category_id
        WHERE p.id = ?`,

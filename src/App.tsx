@@ -432,7 +432,6 @@ export default function App() {
   const ProductDetailView = ({ product }: { product: any }) => {
     if (!product) return null;
     const [currentMediaIdx, setCurrentMediaIdx] = useState(0);
-    const [activeTab, setActiveTab] = useState("照片");
     const [isVideoPlaying, setIsVideoPlaying] = useState(false);
     const [canScrollLeft, setCanScrollLeft] = useState(false);
     const [canScrollRight, setCanScrollRight] = useState(true);
@@ -677,104 +676,66 @@ export default function App() {
             <button className="flex-1 border-2 border-hanke-dark text-hanke-dark py-3 rounded-full font-bold text-sm">联系商家</button>
           </div>
 
-          {/* Tabs Content */}
-          <div className="bg-white rounded-3xl md:rounded-[40px] shadow-sm border border-gray-100 overflow-hidden mb-12 md:mb-16">
-            <div className="flex border-b border-gray-100 overflow-x-auto whitespace-nowrap">
-              {["照片","属性"].map((tab) => (
-                <button 
-                  key={tab} 
-                  onClick={() => setActiveTab(tab)}
-                  className={`px-8 md:px-12 py-4 md:py-6 font-bold text-base md:text-lg transition-all relative ${
-                    activeTab === tab ? "text-hanke-red" : "text-gray-400 hover:text-hanke-dark"
-                  }`}
-                >
-                  {tab}
-                  {activeTab === tab && (
-                    <motion.div 
-                      layoutId="activeTab"
-                      className="absolute bottom-0 left-0 right-0 h-1 bg-hanke-red"
-                    />
-                  )}
-                </button>
-              ))}
-            </div>
-            <div className="p-6 md:p-12">
-              {activeTab === "属性" && (
-                <>
-                  <h2 className="text-xl md:text-2xl font-black mb-6 md:mb-8">重要属性</h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 md:gap-x-16 gap-y-2 md:gap-y-4">
-                    {[
-                      { label: "行业应用", value: "礼品和工艺品" },
-                      { label: "材质", value: product.specs?.material || "聚乙烯对苯二甲酸酯（塑料）" },
-                      { label: "类型", value: product.specs?.type || "3D Sticker" },
-                      { label: "特性", value: product.specs?.feature || "waterproof" },
-                      { label: "印刷处理", value: product.specs?.printing || "Customized" },
-                      { label: "标签形状", value: product.specs?.shape || "Customized" },
-                      { label: "核心直径", value: "Customized" },
-                      { label: "接受定制", value: "是" },
-                      { label: "型号", value: "CA-1518" },
-                      { label: "原产地", value: "Zhejiang, China" },
-                      { label: "品牌", value: product.specs?.brand || "CY" },
-                    ].map((attr, i) => (
-                      <div key={i} className="flex border-b border-gray-50 py-3 md:py-4">
-                        <span className="w-24 md:w-32 text-gray-400 text-xs md:text-sm shrink-0">{attr.label}</span>
-                        <span className="text-hanke-dark font-medium text-sm md:text-base">{attr.value}</span>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="mt-16">
-                    <h2 className="text-2xl font-black mb-8">包装和发货信息</h2>
-                    <div className="flex border border-gray-100 rounded-xl overflow-hidden">
-                      <div className="bg-gray-50 px-8 py-4 w-48 font-bold text-gray-500 border-r border-gray-100">销售单位</div>
-                      <div className="px-8 py-4">单一商品</div>
-                    </div>
-                  </div>
-
-                  <div className="mt-16">
-                    <h2 className="text-2xl font-black mb-8">交货时间</h2>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left border-collapse">
-                        <thead>
-                          <tr className="bg-gray-50 text-gray-400 text-sm">
-                            <th className="px-8 py-4 border border-gray-100">数量 (pieces)</th>
-                            <th className="px-8 py-4 border border-gray-100">1 - 5,000</th>
-                            <th className="px-8 py-4 border border-gray-100">5,001 - 50,000</th>
-                            <th className="px-8 py-4 border border-gray-100">&gt; 50,000</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <tr>
-                            <td className="px-8 py-4 border border-gray-100 font-bold text-gray-500">美国东部时间 (天)</td>
-                            <td className="px-8 py-4 border border-gray-100">7</td>
-                            <td className="px-8 py-4 border border-gray-100">30</td>
-                            <td className="px-8 py-4 border border-gray-100">待定</td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {activeTab === "照片" && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
-                  {productMedia.filter(m => m.type === 'image').map((img, i) => (
-                    <div key={i} className="rounded-2xl overflow-hidden shadow-sm border border-gray-100">
-                      <img src={img.url} alt={`Detail ${i}`} className="w-full h-auto" referrerPolicy="no-referrer" />
-                    </div>
-                  ))}
-                  <div className="md:col-span-2 bg-gray-50 p-8 md:p-12 rounded-3xl text-center">
-                    <h3 className="text-xl font-bold mb-4">更多实拍图</h3>
-                    <p className="text-gray-500 mb-8">由于光线和显示器不同，实物与图片可能存在轻微色差，请以实物为准。</p>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      {[1, 2, 3, 4].map(i => (
-                        <img key={i} src={`https://picsum.photos/seed/detail-${product.id}-${i}/400/400`} className="rounded-xl shadow-sm" referrerPolicy="no-referrer" />
-                      ))}
-                    </div>
-                  </div>
+          {/* Product Details Content */}
+          <div className="bg-white rounded-3xl md:rounded-[40px] shadow-sm border border-gray-100 p-6 md:p-12 mb-12 md:mb-16">
+            <h2 className="text-xl md:text-2xl font-black mb-6 md:mb-8">重要属性</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 md:gap-x-16 gap-y-2 md:gap-y-4">
+              {Object.entries(product.specs || {}).map(([label, value]) => (
+                <div key={label} className="flex border-b border-gray-50 py-3 md:py-4">
+                  <span className="w-24 md:w-32 text-gray-400 text-xs md:text-sm shrink-0">{label}</span>
+                  <span className="text-hanke-dark font-medium text-sm md:text-base break-all">{String(value || '-')}</span>
                 </div>
+              ))}
+              {!Object.keys(product.specs || {}).length && (
+                <div className="text-gray-400 text-sm">暂无重要属性，请在后台产品详情中配置 specs。</div>
               )}
+            </div>
+
+            <div className="mt-16">
+              <h2 className="text-2xl font-black mb-8">交货时间</h2>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-gray-50 text-gray-400 text-sm">
+                      <th className="px-8 py-4 border border-gray-100">数量 (pieces)</th>
+                      <th className="px-8 py-4 border border-gray-100">1 - 5,000</th>
+                      <th className="px-8 py-4 border border-gray-100">5,001 - 50,000</th>
+                      <th className="px-8 py-4 border border-gray-100">&gt; 50,000</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td className="px-8 py-4 border border-gray-100 font-bold text-gray-500">美国东部时间 (天)</td>
+                      <td className="px-8 py-4 border border-gray-100">7</td>
+                      <td className="px-8 py-4 border border-gray-100">30</td>
+                      <td className="px-8 py-4 border border-gray-100">待定</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="mt-16">
+              <h2 className="text-2xl font-black mb-8">图文详情</h2>
+              <div className="space-y-6 md:space-y-8">
+                {(product.detailContent || []).map((item: any, i: number) => (
+                  <div key={i} className="rounded-2xl overflow-hidden border border-gray-100 bg-white">
+                    {item.image && (
+                      <img src={item.image} alt={item.title || `图文详情-${i + 1}`} className="w-full h-auto" referrerPolicy="no-referrer" />
+                    )}
+                    {(item.title || item.text) && (
+                      <div className="p-4 md:p-6">
+                        {item.title && <h3 className="text-lg md:text-xl font-bold mb-2">{item.title}</h3>}
+                        {item.text && <p className="text-gray-600 leading-relaxed whitespace-pre-wrap">{item.text}</p>}
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {!(product.detailContent || []).length && (
+                  <div className="text-gray-400 text-sm">暂无图文详情，请在后台上传图文详情内容。</div>
+                )}
+              </div>
+            </div>
 
               {/* FAQ Section - Netflix Style */}
               <div className="mt-16 md:mt-24">
@@ -824,7 +785,6 @@ export default function App() {
                   ))}
                 </div>
               </div>
-            </div>
           </div>
 
           {/* Recommendations */}

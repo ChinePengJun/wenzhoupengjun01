@@ -15,6 +15,7 @@ type Product = {
   tiers?: Array<{ range: string; price: string }>;
   thumbnails?: string[];
   videoUrl?: string;
+  detailContent?: Array<{ image?: string; title?: string; text?: string }>;
 };
 
 type Stats = {
@@ -54,6 +55,16 @@ const cardCls = 'rounded-2xl border border-slate-200 bg-white p-4 shadow-sm';
 const btnCls = 'rounded-xl px-3 py-2 text-sm font-semibold text-white bg-slate-900 hover:bg-slate-700 transition';
 const inputCls = 'w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300';
 
+function parseDetailContent(value: string): Array<{ image?: string; title?: string; text?: string }> {
+  if (!value.trim()) return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -71,7 +82,7 @@ export default function AdminApp() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [categoryName, setCategoryName] = useState('');
-  const [newProduct, setNewProduct] = useState({ title: '', categoryId: '', price: '', img: '', moq: '1000 片', thumbnails: '', videoUrl: '' });
+  const [newProduct, setNewProduct] = useState({ title: '', categoryId: '', price: '', img: '', moq: '1000 片', thumbnails: '', videoUrl: '', detailContent: '[]' });
   const [error, setError] = useState('');
   const [productKeyword, setProductKeyword] = useState('');
   const [siteSettings, setSiteSettings] = useState({
@@ -176,10 +187,11 @@ export default function AdminApp() {
           moq: newProduct.moq,
           thumbnails: newProduct.thumbnails.split(',').map((x) => x.trim()).filter(Boolean),
           videoUrl: newProduct.videoUrl,
+          detailContent: parseDetailContent(newProduct.detailContent),
           status: 'active',
         }),
       }, token);
-      setNewProduct({ title: '', categoryId: '', price: '', img: '', moq: '1000 片', thumbnails: '', videoUrl: '' });
+      setNewProduct({ title: '', categoryId: '', price: '', img: '', moq: '1000 片', thumbnails: '', videoUrl: '', detailContent: '[]' });
       await reload(token);
     } catch (err) {
       setError((err as Error).message);
@@ -271,6 +283,29 @@ export default function AdminApp() {
     }
   }
 
+
+  async function uploadAndAppendDetailImages(files: FileList) {
+    try {
+      const urls: string[] = [];
+      for (const file of Array.from(files)) {
+        const dataUrl = await fileToDataUrl(file);
+        const result = await request<{ url: string }>('/api/admin/upload', {
+          method: 'POST',
+          body: JSON.stringify({ filename: file.name, dataUrl }),
+        }, token);
+        urls.push(result.url);
+      }
+
+      setNewProduct((v) => {
+        const existing = parseDetailContent(v.detailContent);
+        const appended = [...existing, ...urls.map((url) => ({ image: url, title: '', text: '' }))];
+        return { ...v, detailContent: JSON.stringify(appended, null, 2) };
+      });
+    } catch (err) {
+      setError(`图文详情图片上传失败：${(err as Error).message}`);
+    }
+  }
+
   async function saveSiteSettings(e: FormEvent) {
     e.preventDefault();
     try {
@@ -309,6 +344,12 @@ export default function AdminApp() {
     const videoUrl = window.prompt('详情视频 URL（可留空）', item.videoUrl || '');
     if (videoUrl === null) return;
 
+    const detailContentText = window.prompt(
+      '图文详情 JSON（例如 [{"image":"/uploads/1.jpg","title":"生产细节","text":"支持定制"}]）',
+      JSON.stringify(item.detailContent || [], null, 2),
+    );
+    if (detailContentText === null) return;
+
     try {
       await request(`/api/admin/products/${item.id}`, {
         method: 'PUT',
@@ -318,6 +359,7 @@ export default function AdminApp() {
           tiers: JSON.parse(tiersText),
           thumbnails: JSON.parse(thumbnailsText),
           videoUrl,
+          detailContent: JSON.parse(detailContentText),
         }),
       }, token);
       await reload(token);
@@ -428,6 +470,10 @@ export default function AdminApp() {
             <label className="text-xs text-slate-500">上传详情视频
               <input type="file" accept="video/*" className="block mt-1" onChange={(e) => e.target.files?.[0] && uploadAndFillVideo(e.target.files[0])} />
             </label>
+            <textarea className={inputCls} rows={6} value={newProduct.detailContent} onChange={(e) => setNewProduct((v) => ({ ...v, detailContent: e.target.value }))} placeholder='图文详情 JSON，示例：[{"image":"/uploads/a.jpg","title":"工艺说明","text":"可定制LOGO"}]' />
+            <label className="text-xs text-slate-500">上传图文详情图片（可多选）
+              <input type="file" accept="image/*" multiple className="block mt-1" onChange={(e) => e.target.files && uploadAndAppendDetailImages(e.target.files)} />
+            </label>
             <button className={`${btnCls} w-fit`} type="submit">新增产品</button>
           </form>
 
@@ -442,7 +488,7 @@ export default function AdminApp() {
                     <td className="py-2">{p.id}</td>
                     <td className="max-w-xs">
                       <div className="font-medium">{p.title}</div>
-                      <div className="text-xs text-slate-400 mt-1">缩略图: {p.thumbnails?.length || 0} · 视频: {p.videoUrl ? '已配置' : '未配置'}</div>
+                      <div className="text-xs text-slate-400 mt-1">缩略图: {p.thumbnails?.length || 0} · 视频: {p.videoUrl ? '已配置' : '未配置'} · 图文详情: {p.detailContent?.length || 0}</div>
                     </td>
                     <td>{p.category}</td>
                     <td>{p.price}</td>
