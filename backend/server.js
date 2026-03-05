@@ -20,6 +20,7 @@ const ADMIN_PORT = Number(process.env.ADMIN_PORT || 3000);
 const ADMIN_SEED_USERNAME = process.env.ADMIN_USERNAME || 'admin';
 const ADMIN_SEED_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123456';
 const ALLOWED_ORIGIN = process.env.ADMIN_CORS_ORIGIN || '*';
+const BODY_LIMIT = process.env.ADMIN_BODY_LIMIT || '30mb';
 
 const DEFAULT_SITE_SETTINGS = {
   companyName: '云浠（温州）包装有限公司',
@@ -242,7 +243,8 @@ initDatabase();
 setInterval(pruneSessions, 10 * 60 * 1000).unref();
 
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: BODY_LIMIT }));
+app.use(express.urlencoded({ limit: BODY_LIMIT, extended: true }));
 
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
@@ -505,7 +507,6 @@ app.delete('/api/admin/products/:id', authRequired, (req, res) => {
   if (!result.changes) return res.status(404).json({ message: '产品不存在' });
   res.json({ success: true });
 });
-
 app.get('/api/admin/users', authRequired, (req, res) => {
   const keyword = String(req.query.keyword || '').trim();
   const rows = keyword
@@ -608,6 +609,16 @@ app.delete('/api/admin/announcements/:id', authRequired, (req, res) => {
   const result = db.prepare('DELETE FROM system_announcements WHERE id = ?').run(id);
   if (!result.changes) return res.status(404).json({ message: '公告不存在' });
   res.json({ success: true });
+});
+
+
+app.use((error, _req, res, next) => {
+  if (error?.type === 'entity.too.large') {
+    return res.status(413).json({
+      message: `上传内容过大，已超过服务器限制（当前 ${BODY_LIMIT}）`,
+    });
+  }
+  return next(error);
 });
 
 app.use('/uploads', express.static(uploadsDir));
