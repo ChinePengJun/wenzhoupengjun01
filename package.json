@@ -8,7 +8,12 @@
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "admin:dev": "node backend/server.js",
+    "start": "node backend/server.js",
+    "start:prod": "npm run build && (npm run start:frontend & npm run start:backend & wait)",
+    "start:frontend": "node frontend-server.js",
+    "start:backend": "node backend/server.js"
   },
   "dependencies": {
     "@google/genai": "^1.29.0",

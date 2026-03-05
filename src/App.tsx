@@ -41,40 +41,15 @@ export default function App() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isProductsExpanded, setIsProductsExpanded] = useState(false);
 
-  const categories = ["全部", "3D滴胶贴纸", "不干胶标签", "纸袋、包装盒定制"];
-
-  const products = [
-    { 
-      id: 1, 
-      title: "CY CA-1518 定制3D打印环氧树脂防水PET材料手机贴纸流行吻切式包装标签", 
-      category: "3D滴胶贴纸", 
-      price: "US$0.20-0.23", 
-      img: "https://s.alicdn.com/@sc04/kf/H1e4ecf49828942c8aeee85fe6cb532ef1/CY-CA-1518-3D-PET-.jpg?hasNWGrade=1",
-      moq: "3000 pieces",
-      tiers: [
-        { range: "3,000 - 4,999 pieces", price: "US$0.23" },
-        { range: "5,000 - 9,999 pieces", price: "US$0.21" },
-        { range: ">= 10,000 pieces", price: "US$0.20" }
-      ],
-      specs: {
-        color: "Colorful",
-        size: "Customized",
-        material: "聚乙烯对苯二甲酸酯（塑料）",
-        type: "3D Sticker",
-        feature: "waterproof",
-        printing: "Customized",
-        shape: "Customized",
-        brand: "CY"
-      }
-    },
-    { id: 2, title: "批发CY品牌CA-1513型号定制印刷徽标设计3D防水礼品工艺手机壳贴纸A6尺寸PET环氧树脂", category: "3D滴胶贴纸", price: "US$0.20-0.30", img: "https://s.alicdn.com/@sc04/kf/Hb1630189e9a44b0db57da0c63bc03f0fs/-CY-CA-1513-3D-A6-PET.jpg?hasNWGrade=1", moq: "3000 pieces" },
-    { id: 3, title: "定制 A6 尺寸 3D 圆顶凝胶水晶徽标贴纸 UV 印刷防水 UV 装饰手机后盖礼品及工艺品", category: "不干胶标签", price: "US$0.18-0.28", img: "https://s.alicdn.com/@sc04/kf/H9639f9cf7f0b4c418df3e5750eace15fU/-A6-3D-UV-UV-.jpg?hasNWGrade=1", moq: "3000 pieces" },
-    { id: 4, title: "定制时尚3D凝胶标志手机套宠物树脂贴纸DIY不干胶防水圆顶水晶环氧标签包装", category: "3D滴胶贴纸", price: "US$0.22-0.35", img: "https://s.alicdn.com/@sc04/kf/H9639f9cf7f0b4c418df3e5750eace15fU/-A6-3D-UV-UV-.jpg?hasNWGrade=1", moq: "3000 pieces" },
-    { id: 5, title: "定制环保防水3D树脂环氧A6软胶圆顶PET材料印刷包装标签，适用于礼品工艺贴纸", category: "3D滴胶贴纸", price: "US$0.50-1.20", img: "https://s.alicdn.com/@sc04/kf/H3b21fa3271bb4574958fe2553eb6591cB/-3D-DIY-.jpg?hasNWGrade=1", moq: "3000 pieces" },
-    { id: 6, title: "定制徽标 A6 3D PET 贴纸防水防油 UV 印刷全息定制形状圆顶凝胶礼品工艺装饰", category: "3D滴胶贴纸", price: "US$0.15-0.30", img: "https://s.alicdn.com/@sc04/kf/H97d0e262269f474c863bcfada5d6222cH/-3D-A6-PET-.jpg_480x480.jpg?hasNWGrade=1", moq: "3000 pieces" },
-    { id: 7, title: "CY CA-1502 定制自粘防水3D树脂圆顶环氧贴纸独特形状PET材质包装标签标志", category: "3D滴胶贴纸", price: "US$0.30-0.50", img: "https://s.alicdn.com/@sc04/kf/H8f8c11ed71a74298aa50db6b2593720c8/-A6-3D-PET-UV-.jpg_480x480.jpg?hasNWGrade=1", moq: "3000 pieces" },
-    { id: 8, title: "批发 A6 尺寸 3D PET 凸纹防水手机壳笔记本电脑装饰品可定制印刷模切手机贴纸批量供应", category: "3D滴胶贴纸", price: "US$0.25-0.45", img: "https://s.alicdn.com/@sc04/kf/H66e4ca4b812d45db9e2eead9d85f3dd19/CY-CA-1502-3D-PET-.jpg_480x480.jpg?hasNWGrade=1", moq: "3000 pieces" },
-  ];
+  const [categories, setCategories] = useState<string[]>(["全部"]);
+  const [products, setProducts] = useState<any[]>([]);
+  const [siteSettings, setSiteSettings] = useState({
+    companyName: '云浠（温州）包装有限公司',
+    address: '浙江省温州龙港市启源路2356-2400',
+    phone: '+86-131 6635 1888',
+    email: 'wzyunxipack@qq.com',
+    copyright: '© 云浠（温州）包装有限公司 版权所有',
+  });
 
   const handleProductClick = (product: any) => {
     setSelectedProduct(product);
@@ -82,10 +57,51 @@ export default function App() {
     window.scrollTo(0, 0);
   };
 
-  const filteredProducts = activeCategory === "全部" 
-    ? products 
+  const filteredProducts = activeCategory === "全部"
+    ? products
     : products.filter(p => p.category === activeCategory);
 
+  useEffect(() => {
+    const base = (import.meta.env.VITE_ADMIN_API_BASE || '').replace(/\/$/, '');
+    const candidates = base ? [base] : ['http://localhost:3000'];
+
+    (async () => {
+      for (const candidate of candidates) {
+        try {
+          const res = await fetch(`${candidate}/api/catalog`);
+          if (!res.ok) continue;
+          const data = await res.json();
+          const hasData = Array.isArray(data.products) && data.products.length > 0;
+          if (!hasData) continue;
+          const nextCategories = ["全部", ...((data.categories || []).map((item: any) => item.name))];
+          setCategories(nextCategories);
+          setProducts(data.products || []);
+          return;
+        } catch {}
+      }
+
+      setCategories(["全部"]);
+      setProducts([]);
+    })();
+  }, []);
+
+
+  useEffect(() => {
+    const base = (import.meta.env.VITE_ADMIN_API_BASE || '').replace(/\/$/, '');
+    const candidates = base ? [base] : ['http://localhost:3000'];
+
+    (async () => {
+      for (const candidate of candidates) {
+        try {
+          const res = await fetch(`${candidate}/api/site-settings`);
+          if (!res.ok) continue;
+          const data = await res.json();
+          setSiteSettings((prev) => ({ ...prev, ...data }));
+          return;
+        } catch {}
+      }
+    })();
+  }, []);
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 50);
@@ -242,7 +258,7 @@ export default function App() {
                 <div className="p-3 md:p-4">
                   <h3 className="text-xs md:text-sm font-medium mb-2 line-clamp-2 h-8 md:h-10">{product.title}</h3>
                   <p className="text-hanke-red font-bold text-sm md:text-base">{product.price}</p>
-                  <p className="text-[10px] text-gray-400 mt-1">最小起订量: 1000 片</p>
+                  <p className="text-[10px] text-gray-400 mt-1">最小起订量: {product.moq || "1000 片"}</p>
                 </div>
               </motion.div>
             ))}
@@ -342,6 +358,9 @@ export default function App() {
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-8">
+            {filteredProducts.length === 0 && (
+              <div className="col-span-full text-center py-16 text-gray-400">暂无产品数据，请在后台（3000端口）维护并发布产品。</div>
+            )}
             {filteredProducts.map((product) => (
               <motion.div 
                 layout
@@ -369,7 +388,7 @@ export default function App() {
                   <div className="flex items-center justify-between mt-2 md:mt-4">
                     <div>
                       <p className="text-hanke-red font-black text-sm md:text-xl">{product.price}</p>
-                      <p className="text-[8px] md:text-[10px] text-gray-400 mt-0.5 md:mt-1">最小起订量: 1000 片</p>
+                      <p className="text-[8px] md:text-[10px] text-gray-400 mt-0.5 md:mt-1">最小起订量: {product.moq || "1000 片"}</p>
                     </div>
                     <button 
                       onClick={(e) => { e.stopPropagation(); handleProductClick(product); }}
@@ -447,14 +466,10 @@ export default function App() {
       }
     }, []);
 
+    const productImages = [product.img, ...((product.thumbnails || []) as string[])].filter(Boolean);
     const productMedia = [
-      { type: "video", url: "https://videos.pexels.com/video-files/18338777/18338777-uhd_2560_1440_30fps.mp4", poster: product.img },
-      { type: "image", url: `https://picsum.photos/seed/${product.id}-2/600/600` },
-      { type: "image", url: `https://picsum.photos/seed/${product.id}-3/600/600` },
-      { type: "image", url: `https://picsum.photos/seed/${product.id}-4/600/600` },
-      { type: "image", url: `https://picsum.photos/seed/${product.id}-5/600/600` },
-      { type: "image", url: `https://picsum.photos/seed/${product.id}-6/600/600` },
-      { type: "image", url: `https://picsum.photos/seed/${product.id}-7/600/600` },
+      { type: "video" as const, url: (product.videoUrl || "https://videos.pexels.com/video-files/18338777/18338777-uhd_2560_1440_30fps.mp4"), poster: product.img },
+      ...productImages.map((url) => ({ type: "image" as const, url })),
     ];
 
     const nextMedia = () => setCurrentMediaIdx((prev) => (prev + 1) % productMedia.length);
@@ -891,10 +906,10 @@ export default function App() {
 
             <div className="space-y-6 md:space-y-10">
               {[
-                { icon: <Printer size={20} className="md:w-6 md:h-6" />, label: "Company Name", value: "云浠（温州）包装有限公司" },
-                { icon: <MapPin size={20} className="md:w-6 md:h-6" />, label: "Address", value: "浙江省温州龙港市启源路2356-2400" },
-                { icon: <Phone size={20} className="md:w-6 md:h-6" />, label: "Phone:", value: "+8613166351888" },
-                { icon: <Mail size={20} className="md:w-6 md:h-6" />, label: "E-mail:", value: "wzyunxipack@qq.com" },
+                { icon: <Printer size={20} className="md:w-6 md:h-6" />, label: "Company Name", value: siteSettings.companyName },
+                { icon: <MapPin size={20} className="md:w-6 md:h-6" />, label: "Address", value: siteSettings.address },
+                { icon: <Phone size={20} className="md:w-6 md:h-6" />, label: "Phone:", value: siteSettings.phone },
+                { icon: <Mail size={20} className="md:w-6 md:h-6" />, label: "E-mail:", value: siteSettings.email },
               ].map((item, i) => (
                 <div key={i} className="flex gap-4 md:gap-6 group">
                   <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-hanke-red text-white flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform shadow-lg shadow-red-100">
@@ -1242,15 +1257,15 @@ export default function App() {
                 <div className="space-y-4 md:space-y-6 text-gray-400 text-xs md:text-sm">
                 <div className="flex gap-3">
                   <MapPin size={18} className="text-hanke-red shrink-0 md:w-5 md:h-5" />
-                  <p>地址：浙江省温州龙港市启源路2356-2400</p>
+                  <p>地址：{siteSettings.address}</p>
                 </div>
                 <div className="flex gap-3">
                   <Phone size={18} className="text-hanke-red shrink-0 md:w-5 md:h-5" />
-                  <p>电话：+86-131 6635 1888</p>
+                  <p>电话：{siteSettings.phone}</p>
                 </div>
                 <div className="flex gap-3">
                   <Mail size={18} className="text-hanke-red shrink-0 md:w-5 md:h-5" />
-                  <p>邮箱：wzyunxipack@qq.com</p>
+                  <p>邮箱：{siteSettings.email}</p>
                 </div>
               </div>
             </div>
@@ -1258,9 +1273,11 @@ export default function App() {
             <div>
               <h4 className="text-lg font-bold mb-8 text-hanke-red">产品中心</h4>
               <ul className="space-y-4 text-gray-400 text-sm">
-                <li><button onClick={() => { setCurrentPage("products"); setActiveCategory("3D滴胶贴纸"); window.scrollTo(0,0); }} className="hover:text-white transition-colors">3D滴胶贴纸</button></li>
-                <li><button onClick={() => { setCurrentPage("products"); setActiveCategory("不干胶标签"); window.scrollTo(0,0); }} className="hover:text-white transition-colors">不干胶标签</button></li>
-                <li><button onClick={() => { setCurrentPage("products"); setActiveCategory("纸袋、包装盒定制"); window.scrollTo(0,0); }} className="hover:text-white transition-colors">纸袋、包装盒定制</button></li>
+                {categories.filter((cat) => cat !== "全部").map((cat) => (
+                  <li key={cat}>
+                    <button onClick={() => { setCurrentPage("products"); setActiveCategory(cat); window.scrollTo(0,0); }} className="hover:text-white transition-colors">{cat}</button>
+                  </li>
+                ))}
               </ul>
             </div>
 
@@ -1295,7 +1312,7 @@ export default function App() {
         </div>
 
         <div className="pt-12 border-t border-white/10 flex flex-col md:flex-row justify-between items-center gap-8 text-xs text-gray-500">
-            <p>© 云浠（温州）包装有限公司 版权所有</p>
+            <p>{siteSettings.copyright}</p>
             <div className="flex gap-8">
               <a href="#" className="hover:text-white transition-colors">隐私政策</a>
               <a href="#" className="hover:text-white transition-colors">博客</a>
@@ -1307,8 +1324,8 @@ export default function App() {
       {/* Floating Sidebar (Desktop Only) */}
       <div className="fixed right-0 top-1/2 -translate-y-1/2 z-40 hidden lg:flex flex-col bg-[#2A2524] shadow-2xl border-l border-white/10">
         {[
-          { icon: <Phone size={24} />, label: "+86-183 1290 0808", action: () => window.location.href = "tel:+8618312900808" },
-          { icon: <Mail size={24} />, label: "wzyunxipack@qq.com", action: () => window.location.href = "mailto:wzyunxipack@qq.com" },
+          { icon: <Phone size={24} />, label: siteSettings.phone, action: () => window.location.href = `tel:${siteSettings.phone}` },
+          { icon: <Mail size={24} />, label: siteSettings.email, action: () => window.location.href = `mailto:${siteSettings.email}` },
           { icon: <MessageSquare size={24} />, label: "+86-13296759287", action: () => setCurrentPage("contact") },
           { icon: <MessageSquare size={24} />, label: "获取报价", action: () => setCurrentPage("contact") },
         ].map((item, i) => (
