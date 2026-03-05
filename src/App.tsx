@@ -54,7 +54,7 @@ export default function App() {
     i18nMessages: '{}',
   });
 
-  const [currentLang, setCurrentLang] = useState('zh');
+  const [currentLang, setCurrentLang] = useState(() => localStorage.getItem('site_lang') || 'zh');
 
   const messages = (() => {
     try {
@@ -69,7 +69,10 @@ export default function App() {
     .map((v) => v.trim())
     .filter(Boolean);
 
-  const t = (key: string, fallback: string) => messages?.[currentLang]?.[key] || fallback;
+  const t = (key: string, fallback: string) => {
+    const defaultLang = String(siteSettings.defaultLanguage || 'zh');
+    return messages?.[currentLang]?.[key] || messages?.[defaultLang]?.[key] || messages?.zh?.[key] || fallback;
+  };
 
   const handleProductClick = (product: any) => {
     setSelectedProduct(product);
@@ -117,12 +120,16 @@ export default function App() {
           if (!res.ok) continue;
           const data = await res.json();
           setSiteSettings((prev) => ({ ...prev, ...data }));
-          if (data.defaultLanguage) setCurrentLang(String(data.defaultLanguage));
+          if (!localStorage.getItem('site_lang') && data.defaultLanguage) setCurrentLang(String(data.defaultLanguage));
           return;
         } catch {}
       }
     })();
   }, []);
+
+  useEffect(() => {
+    localStorage.setItem('site_lang', currentLang);
+  }, [currentLang]);
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 50);
@@ -1244,19 +1251,19 @@ export default function App() {
           <div className="border-t border-white/10 pt-12 md:pt-16">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 md:gap-16 mb-12 md:mb-24">
               <div className="lg:col-span-1">
-                <h4 className="text-lg font-bold mb-8 text-white">联系信息</h4>
+                <h4 className="text-lg font-bold mb-8 text-white">{t("contactInfo", "联系信息")}</h4>
                 <div className="space-y-4 md:space-y-6 text-gray-400 text-xs md:text-sm">
                 <div className="flex gap-3">
                   <MapPin size={18} className="text-hanke-red shrink-0 md:w-5 md:h-5" />
-                  <p>地址：{siteSettings.address}</p>
+                  <p>{t("address", "地址")}：{siteSettings.address}</p>
                 </div>
                 <div className="flex gap-3">
                   <Phone size={18} className="text-hanke-red shrink-0 md:w-5 md:h-5" />
-                  <p>电话：{siteSettings.phone}</p>
+                  <p>{t("phone", "电话")}：{siteSettings.phone}</p>
                 </div>
                 <div className="flex gap-3">
                   <Mail size={18} className="text-hanke-red shrink-0 md:w-5 md:h-5" />
-                  <p>邮箱：{siteSettings.email}</p>
+                  <p>{t("email", "邮箱")}：{siteSettings.email}</p>
                 </div>
               </div>
             </div>

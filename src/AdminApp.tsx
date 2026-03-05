@@ -1,5 +1,5 @@
 import { Dispatch, FormEvent, SetStateAction, useEffect, useMemo, useState } from 'react';
-import { Grid3X3, FolderTree, PlusCircle, Settings, LogOut, Search, RefreshCw, Pencil } from 'lucide-react';
+import { Grid3X3, FolderTree, PlusCircle, Settings, Languages, LogOut, Search, RefreshCw, Pencil } from 'lucide-react';
 
 type Category = { id: number; name: string };
 type Product = {
@@ -27,7 +27,7 @@ type Stats = {
   productCount?: number;
 };
 
-type AdminTab = 'overview' | 'products' | 'categories' | 'settings';
+type AdminTab = 'overview' | 'products' | 'categories' | 'settings' | 'languages';
 type ProductFormState = {
   title: string;
   categoryId: string;
@@ -352,6 +352,24 @@ export default function AdminApp() {
     }
   }
 
+  async function saveLanguageSettings(e: FormEvent) {
+    e.preventDefault();
+    try {
+      JSON.parse(siteSettings.i18nMessages || '{}');
+      await request('/api/admin/site-settings', {
+        method: 'PUT',
+        body: JSON.stringify({
+          defaultLanguage: siteSettings.defaultLanguage,
+          supportedLanguages: siteSettings.supportedLanguages,
+          i18nMessages: siteSettings.i18nMessages,
+        }),
+      }, token);
+      await reload(token);
+    } catch (err) {
+      setError(`多语种保存失败：${(err as Error).message}`);
+    }
+  }
+
   if (!token) {
     return (
       <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
@@ -428,6 +446,7 @@ export default function AdminApp() {
                 { key: 'products', label: '产品管理', icon: PlusCircle },
                 { key: 'categories', label: '分类管理', icon: FolderTree },
                 { key: 'settings', label: '站点设置', icon: Settings },
+                { key: 'languages', label: '多语种', icon: Languages },
               ].map((item) => {
                 const Icon = item.icon;
                 const active = activeTab === item.key;
@@ -455,7 +474,7 @@ export default function AdminApp() {
               <div className={cardCls}><p className="text-xs text-slate-500">已发布公告</p><p className="text-2xl font-black">{stats?.publishedAnnouncementCount ?? 0}</p></div>
             </section>
 
-            {activeTab === 'overview' && <section className={cardCls}><h2 className="text-lg font-bold mb-3">快速入口</h2><div className="text-sm text-slate-500">可从左侧进入产品、分类、站点设置模块。</div></section>}
+            {activeTab === 'overview' && <section className={cardCls}><h2 className="text-lg font-bold mb-3">快速入口</h2><div className="text-sm text-slate-500">可从左侧进入产品、分类、站点设置、多语种模块。</div></section>}
 
             {activeTab === 'settings' && (
               <section className={cardCls}>
@@ -466,10 +485,21 @@ export default function AdminApp() {
                   <input className={inputCls} value={siteSettings.email} onChange={(e) => setSiteSettings((v) => ({ ...v, email: e.target.value }))} placeholder="联系邮箱" />
                   <input className={inputCls} value={siteSettings.address} onChange={(e) => setSiteSettings((v) => ({ ...v, address: e.target.value }))} placeholder="公司地址" />
                   <input className={`${inputCls} md:col-span-2`} value={siteSettings.copyright} onChange={(e) => setSiteSettings((v) => ({ ...v, copyright: e.target.value }))} placeholder="版权文案" />
+                  <button className={`${btnCls} w-fit`} type="submit">保存站点信息</button>
+                </form>
+              </section>
+            )}
+
+
+            {activeTab === 'languages' && (
+              <section className={cardCls}>
+                <h2 className="text-lg font-bold mb-3">多语种管理</h2>
+                <form onSubmit={saveLanguageSettings} className="grid md:grid-cols-2 gap-2">
                   <input className={inputCls} value={siteSettings.defaultLanguage} onChange={(e) => setSiteSettings((v) => ({ ...v, defaultLanguage: e.target.value }))} placeholder="默认语言（如 zh）" />
                   <input className={inputCls} value={siteSettings.supportedLanguages} onChange={(e) => setSiteSettings((v) => ({ ...v, supportedLanguages: e.target.value }))} placeholder="支持语言（逗号分隔，如 zh,en,ja）" />
-                  <textarea className={`${inputCls} md:col-span-2`} rows={10} value={siteSettings.i18nMessages} onChange={(e) => setSiteSettings((v) => ({ ...v, i18nMessages: e.target.value }))} placeholder='多语种文案 JSON，例如 {"zh":{"home":"首页"},"en":{"home":"Home"}}' />
-                  <button className={`${btnCls} w-fit`} type="submit">保存站点信息</button>
+                  <textarea className={`${inputCls} md:col-span-2`} rows={12} value={siteSettings.i18nMessages} onChange={(e) => setSiteSettings((v) => ({ ...v, i18nMessages: e.target.value }))} placeholder='多语种文案 JSON，例如 {"zh":{"home":"首页"},"en":{"home":"Home"}}' />
+                  <div className="md:col-span-2 text-xs text-slate-500">建议至少提供键：home/about/products/contact/contactInfo/address/phone/email/faq/keyAttributes/richDetails。</div>
+                  <button className={`${btnCls} w-fit`} type="submit">保存多语种配置</button>
                 </form>
               </section>
             )}
