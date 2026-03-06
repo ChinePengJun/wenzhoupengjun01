@@ -20,6 +20,7 @@ const ADMIN_PORT = Number(process.env.ADMIN_PORT || 3000);
 const ADMIN_SEED_USERNAME = process.env.ADMIN_USERNAME || 'admin';
 const ADMIN_SEED_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123456';
 const ALLOWED_ORIGIN = process.env.ADMIN_CORS_ORIGIN || '*';
+const BODY_LIMIT = process.env.ADMIN_BODY_LIMIT || '30mb';
 
 const DEFAULT_SITE_SETTINGS = {
   companyName: '云浠（温州）包装有限公司',
@@ -27,6 +28,78 @@ const DEFAULT_SITE_SETTINGS = {
   phone: '+86-131 6635 1888',
   email: 'wzyunxipack@qq.com',
   copyright: '© 云浠（温州）包装有限公司 版权所有',
+  defaultLanguage: 'zh',
+  supportedLanguages: 'zh,en',
+  i18nMessages: JSON.stringify({
+    zh: {
+      home: '首页',
+      products: '产品中心',
+      about: '关于我们',
+      contact: '联系我们',
+      contactInfo: '联系信息',
+      address: '地址',
+      phone: '电话',
+      email: '邮箱',
+      faq: '常见问题解答',
+      keyAttributes: '重要属性',
+      richDetails: '图文详情',
+      all: '全部',
+      catalogIntro: '探索我们多样化的3D滴胶贴纸系列。我们提供从设计到生产的全方位定制服务，满足您的品牌展示需求。',
+      productCategories: '产品分类',
+      needCustom: '需要定制？',
+      customHint: '上传您的设计，我们为您提供免费打样服务。',
+      inquiryNow: '立即咨询',
+      foundProducts: '共找到',
+      productCountUnit: '款产品',
+      sortBy: '排序',
+      defaultSort: '默认排序',
+      latest: '最新发布',
+      priceAsc: '价格从低到高',
+      noProducts: '暂无产品数据，请在后台（3000端口）维护并发布产品。',
+      viewDetails: '查看详情',
+      sendInquiry: '发送询盘',
+      contactSeller: '联系商家',
+      noSpecs: '暂无重要属性，请在后台产品详情中配置 specs。',
+      deliveryTime: '交货时间',
+      noRichDetails: '暂无图文详情，请在后台上传图文详情内容。',
+      otherRecommendations: '其他推荐',
+      moq: 'MOQ',
+    },
+    en: {
+      home: 'Home',
+      products: 'Products',
+      about: 'About',
+      contact: 'Contact',
+      contactInfo: 'Contact Info',
+      address: 'Address',
+      phone: 'Phone',
+      email: 'Email',
+      faq: 'FAQ',
+      keyAttributes: 'Key Attributes',
+      richDetails: 'Rich Details',
+      all: 'All',
+      catalogIntro: 'Explore our diverse 3D epoxy sticker collection. We provide one-stop custom services from design to production.',
+      productCategories: 'Categories',
+      needCustom: 'Need Customization?',
+      customHint: 'Upload your design and get free sample support.',
+      inquiryNow: 'Inquire Now',
+      foundProducts: 'Found',
+      productCountUnit: 'products',
+      sortBy: 'Sort',
+      defaultSort: 'Default',
+      latest: 'Latest',
+      priceAsc: 'Price: Low to High',
+      noProducts: 'No products yet. Please maintain and publish products from admin (port 3000).',
+      viewDetails: 'View Details',
+      sendInquiry: 'Send Inquiry',
+      contactSeller: 'Contact Seller',
+      noSpecs: 'No key attributes yet. Please configure specs in admin.',
+      deliveryTime: 'Delivery Time',
+      noRichDetails: 'No rich details yet. Please upload rich content in admin.',
+      otherRecommendations: 'Other Recommendations',
+      moq: 'MOQ',
+    },
+  }),
 };
 
 fs.mkdirSync(path.dirname(DB_FILE), { recursive: true });
@@ -59,6 +132,7 @@ function enrichProduct(product) {
     tiers: safeParseJson(product.tiers_json, []),
     thumbnails: safeParseJson(product.thumbnails_json, []),
     videoUrl: product.video_url || '',
+    detailContent: safeParseJson(product.detail_content_json, []),
   };
 }
 
@@ -109,6 +183,7 @@ function initDatabase() {
       tiers_json TEXT NOT NULL DEFAULT '[]',
       thumbnails_json TEXT NOT NULL DEFAULT '[]',
       video_url TEXT NOT NULL DEFAULT '',
+      detail_content_json TEXT NOT NULL DEFAULT '[]',
       status TEXT NOT NULL DEFAULT 'active',
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -128,6 +203,7 @@ function initDatabase() {
   try { db.exec("ALTER TABLE products ADD COLUMN tiers_json TEXT NOT NULL DEFAULT '[]'"); } catch {}
   try { db.exec("ALTER TABLE products ADD COLUMN thumbnails_json TEXT NOT NULL DEFAULT '[]'"); } catch {}
   try { db.exec("ALTER TABLE products ADD COLUMN video_url TEXT NOT NULL DEFAULT ''"); } catch {}
+  try { db.exec("ALTER TABLE products ADD COLUMN detail_content_json TEXT NOT NULL DEFAULT '[]'"); } catch {}
 
   const adminExists = db.prepare('SELECT id FROM admins WHERE username = ?').get(ADMIN_SEED_USERNAME);
   if (!adminExists) {
@@ -183,8 +259,8 @@ function initDatabase() {
     ];
 
     const insertProduct = db.prepare(
-      `INSERT INTO products(title, category_id, price, img, moq, description, specs_json, tiers_json, thumbnails_json, video_url, status, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, '{}', '[]', '[]', '', 'active', datetime('now'), datetime('now'))`,
+      `INSERT INTO products(title, category_id, price, img, moq, description, specs_json, tiers_json, thumbnails_json, video_url, detail_content_json, status, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, '{}', '[]', '[]', '', '[]', 'active', datetime('now'), datetime('now'))`,
     );
 
     products.forEach((item) => {
@@ -226,7 +302,7 @@ function getCatalog() {
   const categories = db.prepare('SELECT id, name FROM product_categories ORDER BY id ASC').all();
   const products = db
     .prepare(
-      `SELECT p.id, p.title, p.price, p.img, p.moq, p.description, p.specs_json, p.tiers_json, p.thumbnails_json, p.video_url, p.status,
+      `SELECT p.id, p.title, p.price, p.img, p.moq, p.description, p.specs_json, p.tiers_json, p.thumbnails_json, p.video_url, p.detail_content_json, p.status,
               p.category_id as categoryId, c.name as category
        FROM products p
        INNER JOIN product_categories c ON c.id = p.category_id
@@ -242,7 +318,8 @@ initDatabase();
 setInterval(pruneSessions, 10 * 60 * 1000).unref();
 
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: BODY_LIMIT }));
+app.use(express.urlencoded({ limit: BODY_LIMIT, extended: true }));
 
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
@@ -393,7 +470,7 @@ app.delete('/api/admin/categories/:id', authRequired, (req, res) => {
 app.get('/api/admin/products', authRequired, (_req, res) => {
   const rows = db
     .prepare(
-      `SELECT p.id, p.title, p.price, p.img, p.moq, p.description, p.specs_json, p.tiers_json, p.thumbnails_json, p.video_url, p.status,
+      `SELECT p.id, p.title, p.price, p.img, p.moq, p.description, p.specs_json, p.tiers_json, p.thumbnails_json, p.video_url, p.detail_content_json, p.status,
               p.category_id as categoryId, c.name as category, p.created_at, p.updated_at
        FROM products p
        INNER JOIN product_categories c ON c.id = p.category_id
@@ -416,6 +493,7 @@ app.post('/api/admin/products', authRequired, (req, res) => {
     tiers = [],
     thumbnails = [],
     videoUrl = '',
+    detailContent = [],
     status = 'active',
   } = req.body || {};
 
@@ -428,8 +506,8 @@ app.post('/api/admin/products', authRequired, (req, res) => {
 
   const result = db
     .prepare(
-      `INSERT INTO products(title, category_id, price, img, moq, description, specs_json, tiers_json, thumbnails_json, video_url, status, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
+      `INSERT INTO products(title, category_id, price, img, moq, description, specs_json, tiers_json, thumbnails_json, video_url, detail_content_json, status, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
     )
     .run(
       title,
@@ -442,12 +520,13 @@ app.post('/api/admin/products', authRequired, (req, res) => {
       JSON.stringify(Array.isArray(tiers) ? tiers : []),
       JSON.stringify(Array.isArray(thumbnails) ? thumbnails : []),
       String(videoUrl || ''),
+      JSON.stringify(Array.isArray(detailContent) ? detailContent : []),
       status === 'disabled' ? 'disabled' : 'active',
     );
 
   const row = db
     .prepare(
-      `SELECT p.id, p.title, p.price, p.img, p.moq, p.description, p.specs_json, p.tiers_json, p.thumbnails_json, p.video_url, p.status,
+      `SELECT p.id, p.title, p.price, p.img, p.moq, p.description, p.specs_json, p.tiers_json, p.thumbnails_json, p.video_url, p.detail_content_json, p.status,
               p.category_id as categoryId, c.name as category, p.created_at, p.updated_at
        FROM products p
        INNER JOIN product_categories c ON c.id = p.category_id
@@ -463,14 +542,14 @@ app.put('/api/admin/products/:id', authRequired, (req, res) => {
   const existing = db.prepare('SELECT * FROM products WHERE id = ?').get(id);
   if (!existing) return res.status(404).json({ message: '产品不存在' });
 
-  const { title, categoryId, price, img, moq, description, specs, tiers, thumbnails, videoUrl, status } = req.body || {};
+  const { title, categoryId, price, img, moq, description, specs, tiers, thumbnails, videoUrl, detailContent, status } = req.body || {};
   const targetCategoryId = Number(categoryId ?? existing.category_id);
   const category = db.prepare('SELECT id FROM product_categories WHERE id = ?').get(targetCategoryId);
   if (!category) return res.status(400).json({ message: '分类不存在' });
 
   db.prepare(
     `UPDATE products
-     SET title = ?, category_id = ?, price = ?, img = ?, moq = ?, description = ?, specs_json = ?, tiers_json = ?, thumbnails_json = ?, video_url = ?, status = ?, updated_at = datetime('now')
+     SET title = ?, category_id = ?, price = ?, img = ?, moq = ?, description = ?, specs_json = ?, tiers_json = ?, thumbnails_json = ?, video_url = ?, detail_content_json = ?, status = ?, updated_at = datetime('now')
      WHERE id = ?`,
   ).run(
     title ?? existing.title,
@@ -483,13 +562,14 @@ app.put('/api/admin/products/:id', authRequired, (req, res) => {
     tiers === undefined ? existing.tiers_json : JSON.stringify(Array.isArray(tiers) ? tiers : []),
     thumbnails === undefined ? existing.thumbnails_json : JSON.stringify(Array.isArray(thumbnails) ? thumbnails : []),
     videoUrl ?? existing.video_url,
+    detailContent === undefined ? existing.detail_content_json : JSON.stringify(Array.isArray(detailContent) ? detailContent : []),
     status ?? existing.status,
     id,
   );
 
   const row = db
     .prepare(
-      `SELECT p.id, p.title, p.price, p.img, p.moq, p.description, p.specs_json, p.tiers_json, p.thumbnails_json, p.video_url, p.status,
+      `SELECT p.id, p.title, p.price, p.img, p.moq, p.description, p.specs_json, p.tiers_json, p.thumbnails_json, p.video_url, p.detail_content_json, p.status,
               p.category_id as categoryId, c.name as category, p.created_at, p.updated_at
        FROM products p INNER JOIN product_categories c ON c.id = p.category_id
        WHERE p.id = ?`,
@@ -505,7 +585,6 @@ app.delete('/api/admin/products/:id', authRequired, (req, res) => {
   if (!result.changes) return res.status(404).json({ message: '产品不存在' });
   res.json({ success: true });
 });
-
 app.get('/api/admin/users', authRequired, (req, res) => {
   const keyword = String(req.query.keyword || '').trim();
   const rows = keyword
@@ -608,6 +687,16 @@ app.delete('/api/admin/announcements/:id', authRequired, (req, res) => {
   const result = db.prepare('DELETE FROM system_announcements WHERE id = ?').run(id);
   if (!result.changes) return res.status(404).json({ message: '公告不存在' });
   res.json({ success: true });
+});
+
+
+app.use((error, _req, res, next) => {
+  if (error?.type === 'entity.too.large') {
+    return res.status(413).json({
+      message: `上传内容过大，已超过服务器限制（当前 ${BODY_LIMIT}）`,
+    });
+  }
+  return next(error);
 });
 
 app.use('/uploads', express.static(uploadsDir));

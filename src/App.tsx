@@ -36,12 +36,13 @@ import { useState, useEffect, useRef } from "react";
 export default function App() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [currentPage, setCurrentPage] = useState("home");
-  const [activeCategory, setActiveCategory] = useState("全部");
+  const ALL_CATEGORY = "__all__";
+  const [activeCategory, setActiveCategory] = useState(ALL_CATEGORY);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isProductsExpanded, setIsProductsExpanded] = useState(false);
 
-  const [categories, setCategories] = useState<string[]>(["全部"]);
+  const [categories, setCategories] = useState<string[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [siteSettings, setSiteSettings] = useState({
     companyName: '云浠（温州）包装有限公司',
@@ -49,7 +50,44 @@ export default function App() {
     phone: '+86-131 6635 1888',
     email: 'wzyunxipack@qq.com',
     copyright: '© 云浠（温州）包装有限公司 版权所有',
+    defaultLanguage: 'zh',
+    supportedLanguages: 'zh,en',
+    i18nMessages: '{}',
   });
+
+  const [currentLang, setCurrentLang] = useState(() => localStorage.getItem('site_lang') || 'zh');
+
+  const messages = (() => {
+    try {
+      return JSON.parse(String(siteSettings.i18nMessages || '{}'));
+    } catch {
+      return {};
+    }
+  })() as Record<string, Record<string, string>>;
+
+  const supportedLanguages = String(siteSettings.supportedLanguages || 'zh,en')
+    .split(',')
+    .map((v) => v.trim())
+    .filter(Boolean);
+
+  const t = (key: string, fallback: string) => {
+    const defaultLang = String(siteSettings.defaultLanguage || 'zh');
+    return messages?.[currentLang]?.[key] || messages?.[defaultLang]?.[key] || messages?.zh?.[key] || fallback;
+  };
+
+  const ltext = (value: unknown) => {
+    if (typeof value !== 'string') return String(value ?? '');
+    const raw = value.trim();
+    if (!raw.startsWith('{') || !raw.endsWith('}')) return value;
+    try {
+      const obj = JSON.parse(raw) as Record<string, string>;
+      if (!obj || Array.isArray(obj)) return value;
+      const defaultLang = String(siteSettings.defaultLanguage || 'zh');
+      return obj[currentLang] || obj[defaultLang] || obj.zh || Object.values(obj)[0] || value;
+    } catch {
+      return value;
+    }
+  };
 
   const handleProductClick = (product: any) => {
     setSelectedProduct(product);
@@ -57,7 +95,7 @@ export default function App() {
     window.scrollTo(0, 0);
   };
 
-  const filteredProducts = activeCategory === "全部"
+  const filteredProducts = activeCategory === ALL_CATEGORY
     ? products
     : products.filter(p => p.category === activeCategory);
 
@@ -73,14 +111,14 @@ export default function App() {
           const data = await res.json();
           const hasData = Array.isArray(data.products) && data.products.length > 0;
           if (!hasData) continue;
-          const nextCategories = ["全部", ...((data.categories || []).map((item: any) => item.name))];
+          const nextCategories = (data.categories || []).map((item: any) => item.name);
           setCategories(nextCategories);
           setProducts(data.products || []);
           return;
         } catch {}
       }
 
-      setCategories(["全部"]);
+      setCategories([]);
       setProducts([]);
     })();
   }, []);
@@ -97,11 +135,16 @@ export default function App() {
           if (!res.ok) continue;
           const data = await res.json();
           setSiteSettings((prev) => ({ ...prev, ...data }));
+          if (!localStorage.getItem('site_lang') && data.defaultLanguage) setCurrentLang(String(data.defaultLanguage));
           return;
         } catch {}
       }
     })();
   }, []);
+
+  useEffect(() => {
+    localStorage.setItem('site_lang', currentLang);
+  }, [currentLang]);
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 50);
@@ -194,7 +237,7 @@ export default function App() {
               </p>
               <div className="flex items-center gap-4">
                 <button onClick={() => { setCurrentPage("products"); window.scrollTo(0,0); }} className="bg-hanke-red hover:bg-red-700 text-white px-8 py-4 rounded-full font-bold transition-all flex items-center gap-2 group">
-                  立即咨询
+                  {t("inquiryNow", "立即咨询")}
                   <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
                 </button>
               </div>
@@ -250,13 +293,13 @@ export default function App() {
                 <div className="aspect-square bg-gray-50 overflow-hidden relative">
                   <img 
                     src={product.img} 
-                    alt={product.title} 
+                    alt={ltext(product.title)} 
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     referrerPolicy="no-referrer"
                   />
                 </div>
                 <div className="p-3 md:p-4">
-                  <h3 className="text-xs md:text-sm font-medium mb-2 line-clamp-2 h-8 md:h-10">{product.title}</h3>
+                  <h3 className="text-xs md:text-sm font-medium mb-2 line-clamp-2 h-8 md:h-10">{ltext(product.title)}</h3>
                   <p className="text-hanke-red font-bold text-sm md:text-base">{product.price}</p>
                   <p className="text-[10px] text-gray-400 mt-1">最小起订量: {product.moq || "1000 片"}</p>
                 </div>
@@ -299,9 +342,9 @@ export default function App() {
       {/* Page Header */}
       <section className="bg-hanke-dark py-16 text-white">
         <div className="max-w-7xl mx-auto px-4 text-center">
-          <h1 className="text-4xl md:text-5xl font-black mb-4">产品中心</h1>
+          <h1 className="text-4xl md:text-5xl font-black mb-4">{t("products", "产品中心")}</h1>
           <p className="text-gray-400 max-w-2xl mx-auto">
-            探索我们多样化的3D滴胶贴纸系列。我们提供从设计到生产的全方位定制服务，满足您的品牌展示需求。
+            {t("catalogIntro", "探索我们多样化的3D滴胶贴纸系列。我们提供从设计到生产的全方位定制服务，满足您的品牌展示需求。")}
           </p>
         </div>
       </section>
@@ -312,7 +355,7 @@ export default function App() {
           <div className="bg-white p-4 md:p-6 rounded-2xl shadow-sm lg:sticky lg:top-24">
             <h3 className="font-bold text-lg mb-4 lg:mb-6 flex items-center gap-2">
               <div className="w-1 h-5 bg-hanke-red"></div>
-              产品分类
+              {t("productCategories", "产品分类")}
             </h3>
             <div className="flex lg:flex-col gap-2 overflow-x-auto lg:overflow-x-visible no-scrollbar pb-2 lg:pb-0 -mx-4 px-4 lg:mx-0 lg:px-0">
               <div className="lg:hidden flex items-center justify-center w-10 h-10 rounded-xl bg-gray-50 text-gray-400 shrink-0 border border-gray-100">
@@ -320,7 +363,7 @@ export default function App() {
               </div>
               {categories.map(cat => (
                 <button
-                  key={cat}
+                  key={ltext(cat)}
                   onClick={() => setActiveCategory(cat)}
                   className={`text-left px-4 py-2 md:py-3 rounded-xl transition-all font-medium whitespace-nowrap lg:whitespace-normal ${
                     activeCategory === cat 
@@ -328,16 +371,16 @@ export default function App() {
                       : "text-gray-600 hover:bg-gray-100"
                   }`}
                 >
-                  {cat}
+                  {ltext(cat)}
                 </button>
               ))}
             </div>
 
             <div className="hidden lg:block mt-12 p-6 bg-blue-50 rounded-2xl border border-blue-100">
-              <h4 className="font-bold text-blue-900 mb-2">需要定制？</h4>
-              <p className="text-sm text-blue-700 mb-4">上传您的设计，我们为您提供免费打样服务。</p>
+              <h4 className="font-bold text-blue-900 mb-2">{t("needCustom", "需要定制？")}</h4>
+              <p className="text-sm text-blue-700 mb-4">{t("customHint", "上传您的设计，我们为您提供免费打样服务。")}</p>
               <button className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold text-sm hover:bg-blue-700 transition-colors">
-                立即咨询
+                {t("inquiryNow", "立即咨询")}
               </button>
             </div>
           </div>
@@ -346,20 +389,20 @@ export default function App() {
         {/* Product Grid */}
         <div className="flex-grow">
           <div className="flex items-center justify-between mb-8">
-            <p className="text-gray-500">共找到 <span className="text-hanke-dark font-bold">{filteredProducts.length}</span> 款产品</p>
+            <p className="text-gray-500">{t("foundProducts", "共找到")} <span className="text-hanke-dark font-bold">{filteredProducts.length}</span> {t("productCountUnit", "款产品")}</p>
             <div className="flex items-center gap-2 text-sm">
-              <span className="text-gray-400">排序:</span>
+              <span className="text-gray-400">{t("sortBy", "排序")}:</span>
               <select className="bg-transparent font-bold text-hanke-dark outline-none cursor-pointer">
-                <option>默认排序</option>
-                <option>最新发布</option>
-                <option>价格从低到高</option>
+                <option>{t("defaultSort", "默认排序")}</option>
+                <option>{t("latest", "最新发布")}</option>
+                <option>{t("priceAsc", "价格从低到高")}</option>
               </select>
             </div>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-8">
             {filteredProducts.length === 0 && (
-              <div className="col-span-full text-center py-16 text-gray-400">暂无产品数据，请在后台（3000端口）维护并发布产品。</div>
+              <div className="col-span-full text-center py-16 text-gray-400">{t("noProducts", "暂无产品数据，请在后台（3000端口）维护并发布产品。")}</div>
             )}
             {filteredProducts.map((product) => (
               <motion.div 
@@ -373,17 +416,17 @@ export default function App() {
                 <div className="aspect-square overflow-hidden relative">
                   <img 
                     src={product.img} 
-                    alt={product.title} 
+                    alt={ltext(product.title)} 
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                     referrerPolicy="no-referrer"
                   />
                   <div className="absolute top-2 left-2 md:top-4 md:left-4 bg-white/90 backdrop-blur-sm px-2 py-0.5 md:px-3 md:py-1 rounded-full text-[8px] md:text-[10px] font-bold text-hanke-red uppercase tracking-wider shadow-sm">
-                    {product.category}
+                    {ltext(product.category)}
                   </div>
                 </div>
                 <div className="p-3 md:p-6">
                   <h3 className="font-bold text-hanke-dark mb-1 md:mb-2 line-clamp-2 h-8 md:h-12 group-hover:text-hanke-red transition-colors text-xs md:text-base">
-                    {product.title}
+                    {ltext(product.title)}
                   </h3>
                   <div className="flex items-center justify-between mt-2 md:mt-4">
                     <div>
@@ -432,7 +475,6 @@ export default function App() {
   const ProductDetailView = ({ product }: { product: any }) => {
     if (!product) return null;
     const [currentMediaIdx, setCurrentMediaIdx] = useState(0);
-    const [activeTab, setActiveTab] = useState("照片");
     const [isVideoPlaying, setIsVideoPlaying] = useState(false);
     const [canScrollLeft, setCanScrollLeft] = useState(false);
     const [canScrollRight, setCanScrollRight] = useState(true);
@@ -491,11 +533,11 @@ export default function App() {
           {/* Breadcrumbs & Back Button */}
           <div className="flex items-center justify-between mb-6 md:mb-8">
             <div className="flex items-center gap-2 text-xs md:text-sm text-gray-500 overflow-x-auto whitespace-nowrap no-scrollbar pr-4">
-              <button onClick={() => setCurrentPage("home")} className="hover:text-hanke-red">首页</button>
+              <button onClick={() => setCurrentPage("home")} className="hover:text-hanke-red">{t("home", "首页")}</button>
               <ChevronRight size={12} className="shrink-0" />
-              <button onClick={() => setCurrentPage("products")} className="hover:text-hanke-red">产品中心</button>
+              <button onClick={() => setCurrentPage("products")} className="hover:text-hanke-red">{t("products", "产品中心")}</button>
               <ChevronRight size={12} className="shrink-0" />
-              <span className="text-hanke-dark font-medium truncate max-w-[100px] md:max-w-[200px]">{product.title}</span>
+              <span className="text-hanke-dark font-medium truncate max-w-[100px] md:max-w-[200px]">{ltext(product.title)}</span>
             </div>
             <button 
               onClick={() => setCurrentPage("products")}
@@ -547,7 +589,7 @@ export default function App() {
                         <div className="w-full h-full flex items-center justify-center bg-white">
                           <img 
                             src={productMedia[currentMediaIdx].url} 
-                            alt={product.title} 
+                            alt={ltext(product.title)} 
                             className="w-full h-full md:w-[520px] md:h-[520px] object-cover" 
                             referrerPolicy="no-referrer" 
                           />
@@ -616,7 +658,7 @@ export default function App() {
             <div className="lg:col-span-4">
               <div className="mb-4 md:mb-6">
                 <h1 className="text-xl md:text-3xl font-black text-hanke-dark leading-tight">
-                  {product.title}
+                  {ltext(product.title)}
                 </h1>
               </div>
 
@@ -664,8 +706,8 @@ export default function App() {
                 </div>
 
                 <div className="hidden md:grid grid-cols-2 gap-3 md:gap-4 mt-8 md:mt-12">
-                  <button className="bg-hanke-red text-white py-3 md:py-4 rounded-full font-bold text-sm md:text-base hover:bg-red-700 transition-all shadow-lg shadow-red-200">发送询盘</button>
-                  <button className="border-2 border-hanke-dark text-hanke-dark py-3 md:py-4 rounded-full font-bold text-sm md:text-base hover:bg-hanke-dark hover:text-white transition-all">联系商家</button>
+                  <button className="bg-hanke-red text-white py-3 md:py-4 rounded-full font-bold text-sm md:text-base hover:bg-red-700 transition-all shadow-lg shadow-red-200">{t("sendInquiry", "发送询盘")}</button>
+                  <button className="border-2 border-hanke-dark text-hanke-dark py-3 md:py-4 rounded-full font-bold text-sm md:text-base hover:bg-hanke-dark hover:text-white transition-all">{t("contactSeller", "联系商家")}</button>
                 </div>
               </div>
             </div>
@@ -673,112 +715,74 @@ export default function App() {
 
           {/* Mobile Sticky Footer */}
           <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 p-4 z-50 flex gap-3 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
-            <button className="flex-1 bg-hanke-red text-white py-3 rounded-full font-bold text-sm shadow-lg shadow-red-100">发送询盘</button>
-            <button className="flex-1 border-2 border-hanke-dark text-hanke-dark py-3 rounded-full font-bold text-sm">联系商家</button>
+            <button className="flex-1 bg-hanke-red text-white py-3 rounded-full font-bold text-sm shadow-lg shadow-red-100">{t("sendInquiry", "发送询盘")}</button>
+            <button className="flex-1 border-2 border-hanke-dark text-hanke-dark py-3 rounded-full font-bold text-sm">{t("contactSeller", "联系商家")}</button>
           </div>
 
-          {/* Tabs Content */}
-          <div className="bg-white rounded-3xl md:rounded-[40px] shadow-sm border border-gray-100 overflow-hidden mb-12 md:mb-16">
-            <div className="flex border-b border-gray-100 overflow-x-auto whitespace-nowrap">
-              {["照片","属性"].map((tab) => (
-                <button 
-                  key={tab} 
-                  onClick={() => setActiveTab(tab)}
-                  className={`px-8 md:px-12 py-4 md:py-6 font-bold text-base md:text-lg transition-all relative ${
-                    activeTab === tab ? "text-hanke-red" : "text-gray-400 hover:text-hanke-dark"
-                  }`}
-                >
-                  {tab}
-                  {activeTab === tab && (
-                    <motion.div 
-                      layoutId="activeTab"
-                      className="absolute bottom-0 left-0 right-0 h-1 bg-hanke-red"
-                    />
-                  )}
-                </button>
-              ))}
-            </div>
-            <div className="p-6 md:p-12">
-              {activeTab === "属性" && (
-                <>
-                  <h2 className="text-xl md:text-2xl font-black mb-6 md:mb-8">重要属性</h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 md:gap-x-16 gap-y-2 md:gap-y-4">
-                    {[
-                      { label: "行业应用", value: "礼品和工艺品" },
-                      { label: "材质", value: product.specs?.material || "聚乙烯对苯二甲酸酯（塑料）" },
-                      { label: "类型", value: product.specs?.type || "3D Sticker" },
-                      { label: "特性", value: product.specs?.feature || "waterproof" },
-                      { label: "印刷处理", value: product.specs?.printing || "Customized" },
-                      { label: "标签形状", value: product.specs?.shape || "Customized" },
-                      { label: "核心直径", value: "Customized" },
-                      { label: "接受定制", value: "是" },
-                      { label: "型号", value: "CA-1518" },
-                      { label: "原产地", value: "Zhejiang, China" },
-                      { label: "品牌", value: product.specs?.brand || "CY" },
-                    ].map((attr, i) => (
-                      <div key={i} className="flex border-b border-gray-50 py-3 md:py-4">
-                        <span className="w-24 md:w-32 text-gray-400 text-xs md:text-sm shrink-0">{attr.label}</span>
-                        <span className="text-hanke-dark font-medium text-sm md:text-base">{attr.value}</span>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="mt-16">
-                    <h2 className="text-2xl font-black mb-8">包装和发货信息</h2>
-                    <div className="flex border border-gray-100 rounded-xl overflow-hidden">
-                      <div className="bg-gray-50 px-8 py-4 w-48 font-bold text-gray-500 border-r border-gray-100">销售单位</div>
-                      <div className="px-8 py-4">单一商品</div>
-                    </div>
-                  </div>
-
-                  <div className="mt-16">
-                    <h2 className="text-2xl font-black mb-8">交货时间</h2>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left border-collapse">
-                        <thead>
-                          <tr className="bg-gray-50 text-gray-400 text-sm">
-                            <th className="px-8 py-4 border border-gray-100">数量 (pieces)</th>
-                            <th className="px-8 py-4 border border-gray-100">1 - 5,000</th>
-                            <th className="px-8 py-4 border border-gray-100">5,001 - 50,000</th>
-                            <th className="px-8 py-4 border border-gray-100">&gt; 50,000</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <tr>
-                            <td className="px-8 py-4 border border-gray-100 font-bold text-gray-500">美国东部时间 (天)</td>
-                            <td className="px-8 py-4 border border-gray-100">7</td>
-                            <td className="px-8 py-4 border border-gray-100">30</td>
-                            <td className="px-8 py-4 border border-gray-100">待定</td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {activeTab === "照片" && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
-                  {productMedia.filter(m => m.type === 'image').map((img, i) => (
-                    <div key={i} className="rounded-2xl overflow-hidden shadow-sm border border-gray-100">
-                      <img src={img.url} alt={`Detail ${i}`} className="w-full h-auto" referrerPolicy="no-referrer" />
-                    </div>
-                  ))}
-                  <div className="md:col-span-2 bg-gray-50 p-8 md:p-12 rounded-3xl text-center">
-                    <h3 className="text-xl font-bold mb-4">更多实拍图</h3>
-                    <p className="text-gray-500 mb-8">由于光线和显示器不同，实物与图片可能存在轻微色差，请以实物为准。</p>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      {[1, 2, 3, 4].map(i => (
-                        <img key={i} src={`https://picsum.photos/seed/detail-${product.id}-${i}/400/400`} className="rounded-xl shadow-sm" referrerPolicy="no-referrer" />
-                      ))}
-                    </div>
-                  </div>
+          {/* Product Details Content */}
+          <div className="bg-white rounded-3xl md:rounded-[40px] shadow-sm border border-gray-100 p-6 md:p-12 mb-12 md:mb-16">
+            <h2 className="text-xl md:text-2xl font-black mb-6 md:mb-8">{t("keyAttributes", "重要属性")}</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 md:gap-x-16 gap-y-2 md:gap-y-4">
+              {Object.entries(product.specs || {}).map(([label, value]) => (
+                <div key={label} className="flex border-b border-gray-50 py-3 md:py-4">
+                  <span className="w-24 md:w-32 text-gray-400 text-xs md:text-sm shrink-0">{label}</span>
+                  <span className="text-hanke-dark font-medium text-sm md:text-base break-all">{String(value || '-')}</span>
                 </div>
+              ))}
+              {!Object.keys(product.specs || {}).length && (
+                <div className="text-gray-400 text-sm">{t("noSpecs", "暂无重要属性，请在后台产品详情中配置 specs。")}</div>
               )}
+            </div>
+
+            <div className="mt-16">
+              <h2 className="text-2xl font-black mb-8">{t("deliveryTime", "交货时间")}</h2>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-gray-50 text-gray-400 text-sm">
+                      <th className="px-8 py-4 border border-gray-100">数量 (pieces)</th>
+                      <th className="px-8 py-4 border border-gray-100">1 - 5,000</th>
+                      <th className="px-8 py-4 border border-gray-100">5,001 - 50,000</th>
+                      <th className="px-8 py-4 border border-gray-100">&gt; 50,000</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td className="px-8 py-4 border border-gray-100 font-bold text-gray-500">美国东部时间 (天)</td>
+                      <td className="px-8 py-4 border border-gray-100">7</td>
+                      <td className="px-8 py-4 border border-gray-100">30</td>
+                      <td className="px-8 py-4 border border-gray-100">待定</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="mt-16">
+              <h2 className="text-2xl font-black mb-8">{t("richDetails", "图文详情")}</h2>
+              <div className="space-y-6 md:space-y-8">
+                {(product.detailContent || []).map((item: any, i: number) => (
+                  <div key={i} className="rounded-2xl overflow-hidden border border-gray-100 bg-white">
+                    {item.image && (
+                      <img src={item.image} alt={item.title || `图文详情-${i + 1}`} className="w-full h-auto" referrerPolicy="no-referrer" />
+                    )}
+                    {(item.title || item.text) && (
+                      <div className="p-4 md:p-6">
+                        {item.title && <h3 className="text-lg md:text-xl font-bold mb-2">{item.title}</h3>}
+                        {item.text && <p className="text-gray-600 leading-relaxed whitespace-pre-wrap">{item.text}</p>}
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {!(product.detailContent || []).length && (
+                  <div className="text-gray-400 text-sm">{t("noRichDetails", "暂无图文详情，请在后台上传图文详情内容。")}</div>
+                )}
+              </div>
+            </div>
 
               {/* FAQ Section - Netflix Style */}
               <div className="mt-16 md:mt-24">
-                <h2 className="text-2xl md:text-3xl font-black mb-8 text-hanke-dark">常见问题解答</h2>
+                <h2 className="text-2xl md:text-3xl font-black mb-8 text-hanke-dark">{t("faq", "常见问题解答")}</h2>
                 <div className="space-y-2">
                   {[
                     { q: "我们能得到一些样品吗？有收费吗？", a: "是的，你可以从我们的库存中获得可用的样品。真正的样品是免费的，但是你需要承担运费。" },
@@ -824,21 +828,20 @@ export default function App() {
                   ))}
                 </div>
               </div>
-            </div>
           </div>
 
           {/* Recommendations */}
           <section>
-            <h2 className="text-3xl font-black mb-12">其他推荐</h2>
+            <h2 className="text-3xl font-black mb-12">{t("otherRecommendations", "其他推荐")}</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
               {products.slice(0, 4).map((p) => (
                 <div key={p.id} onClick={() => handleProductClick(p)} className="group cursor-pointer">
                   <div className="aspect-square rounded-2xl overflow-hidden mb-4 shadow-sm">
-                    <img src={p.img} alt={p.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" referrerPolicy="no-referrer" />
+                    <img src={p.img} alt={ltext(p.title)} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" referrerPolicy="no-referrer" />
                   </div>
-                  <h4 className="font-bold text-sm mb-2 line-clamp-2 h-10 group-hover:text-hanke-red transition-colors">{p.title}</h4>
+                  <h4 className="font-bold text-sm mb-2 line-clamp-2 h-10 group-hover:text-hanke-red transition-colors">{ltext(p.title)}</h4>
                   <p className="text-hanke-red font-black">{p.price}</p>
-                  <p className="text-[10px] text-gray-400 mt-1">MOQ: 3000 pieces</p>
+                  <p className="text-[10px] text-gray-400 mt-1">{t("moq", "MOQ")}: 3000 pieces</p>
                 </div>
               ))}
             </div>
@@ -1130,20 +1133,23 @@ export default function App() {
           </div>
           
           <div className={`hidden lg:flex items-center gap-8 ${isScrolled || currentPage !== "home" ? "text-hanke-dark" : "text-white"}`}>
-            <button onClick={() => setCurrentPage("home")} className={`nav-link ${currentPage === "home" ? "text-hanke-red" : ""}`}>首页</button>
-            <button onClick={() => setCurrentPage("about")} className={`nav-link ${currentPage === "about" ? "text-hanke-red" : ""}`}>关于我们</button>
-            <button onClick={() => setCurrentPage("products")} className={`nav-link ${currentPage === "products" ? "text-hanke-red" : ""}`}>产品中心</button>
-            <button onClick={() => setCurrentPage("contact")} className={`nav-link ${currentPage === "contact" ? "text-hanke-red" : ""}`}>联系我们</button>
+            <button onClick={() => setCurrentPage("home")} className={`nav-link ${currentPage === "home" ? "text-hanke-red" : ""}`}>{t("home", "首页")}</button>
+            <button onClick={() => setCurrentPage("about")} className={`nav-link ${currentPage === "about" ? "text-hanke-red" : ""}`}>{t("about", "关于我们")}</button>
+            <button onClick={() => setCurrentPage("products")} className={`nav-link ${currentPage === "products" ? "text-hanke-red" : ""}`}>{t("products", "产品中心")}</button>
+            <button onClick={() => setCurrentPage("contact")} className={`nav-link ${currentPage === "contact" ? "text-hanke-red" : ""}`}>{t("contact", "联系我们")}</button>
           </div>
 
           <div className="flex items-center gap-2 md:gap-4">
             <button className={`p-2 rounded-full transition-colors ${isScrolled || currentPage !== "home" ? "hover:bg-gray-100 text-hanke-dark" : "hover:bg-white/10 text-white"}`}>
               <Search size={18} className="md:w-5 md:h-5" />
             </button>
-            <div className={`hidden sm:flex items-center gap-1 px-3 py-1 rounded-full border transition-colors cursor-pointer ${isScrolled || currentPage !== "home" ? "border-gray-200 text-hanke-dark hover:bg-gray-50" : "border-white/30 text-white hover:bg-white/10"}`}>
+            <div className={`hidden sm:flex items-center gap-2 px-3 py-1 rounded-full border transition-colors ${isScrolled || currentPage !== "home" ? "border-gray-200 text-hanke-dark bg-white" : "border-white/30 text-white bg-black/10"}`}>
               <Globe size={14} />
-              <span className="text-[10px] font-medium uppercase tracking-wider">CN</span>
-              <ChevronRight size={10} className="rotate-90" />
+              <select className="bg-transparent text-[10px] font-medium uppercase tracking-wider outline-none" value={currentLang} onChange={(e) => setCurrentLang(e.target.value)}>
+                {supportedLanguages.map((lang) => (
+                  <option key={lang} value={lang} className="text-hanke-dark">{lang}</option>
+                ))}
+              </select>
             </div>
             <button 
               onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -1164,11 +1170,18 @@ export default function App() {
               className="lg:hidden bg-white border-t border-gray-100 overflow-hidden"
             >
               <div className="flex flex-col p-4 gap-2">
+                <div className="px-2 pb-2">
+                  <select className="w-full rounded-xl border border-gray-200 px-3 py-2" value={currentLang} onChange={(e) => setCurrentLang(e.target.value)}>
+                    {supportedLanguages.map((lang) => (
+                      <option key={lang} value={lang}>{lang.toUpperCase()}</option>
+                    ))}
+                  </select>
+                </div>
                 {[
-                  { id: "home", label: "首页" },
-                  { id: "about", label: "关于我们" },
-                  { id: "products", label: "产品中心", subItems: categories },
-                  { id: "contact", label: "联系我们" },
+                  { id: "home", label: t("home", "首页") },
+                  { id: "about", label: t("about", "关于我们") },
+                  { id: "products", label: t("products", "产品中心"), subItems: categories },
+                  { id: "contact", label: t("contact", "联系我们") },
                 ].map((item) => (
                   <div key={item.id} className="flex flex-col">
                     <div className="flex items-center">
@@ -1206,18 +1219,18 @@ export default function App() {
                             className="overflow-hidden bg-gray-50/50 rounded-xl mx-2 mb-2"
                           >
                             <div className="flex flex-col p-2 gap-1">
-                              {item.subItems.map((sub) => (
+                              {[{ label: t("all", "全部"), value: ALL_CATEGORY }, ...item.subItems.map((sub) => ({ label: ltext(sub), value: sub }))].map((subItem) => (
                                 <button
-                                  key={sub}
+                                  key={subItem.value}
                                   onClick={() => {
                                     setCurrentPage("products");
-                                    setActiveCategory(sub);
+                                    setActiveCategory(subItem.value);
                                     setIsMenuOpen(false);
                                     window.scrollTo(0, 0);
                                   }}
-                                  className={`text-left px-6 py-3 rounded-lg text-sm font-medium transition-colors ${activeCategory === sub && currentPage === "products" ? "text-hanke-red bg-white shadow-sm" : "text-gray-500 hover:bg-white"}`}
+                                  className={`text-left px-6 py-3 rounded-lg text-sm font-medium transition-colors ${activeCategory === subItem.value && currentPage === "products" ? "text-hanke-red bg-white shadow-sm" : "text-gray-500 hover:bg-white"}`}
                                 >
-                                  {sub}
+                                  {subItem.label}
                                 </button>
                               ))}
                             </div>
@@ -1253,29 +1266,29 @@ export default function App() {
           <div className="border-t border-white/10 pt-12 md:pt-16">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 md:gap-16 mb-12 md:mb-24">
               <div className="lg:col-span-1">
-                <h4 className="text-lg font-bold mb-8 text-white">联系信息</h4>
+                <h4 className="text-lg font-bold mb-8 text-white">{t("contactInfo", "联系信息")}</h4>
                 <div className="space-y-4 md:space-y-6 text-gray-400 text-xs md:text-sm">
                 <div className="flex gap-3">
                   <MapPin size={18} className="text-hanke-red shrink-0 md:w-5 md:h-5" />
-                  <p>地址：{siteSettings.address}</p>
+                  <p>{t("address", "地址")}：{siteSettings.address}</p>
                 </div>
                 <div className="flex gap-3">
                   <Phone size={18} className="text-hanke-red shrink-0 md:w-5 md:h-5" />
-                  <p>电话：{siteSettings.phone}</p>
+                  <p>{t("phone", "电话")}：{siteSettings.phone}</p>
                 </div>
                 <div className="flex gap-3">
                   <Mail size={18} className="text-hanke-red shrink-0 md:w-5 md:h-5" />
-                  <p>邮箱：{siteSettings.email}</p>
+                  <p>{t("email", "邮箱")}：{siteSettings.email}</p>
                 </div>
               </div>
             </div>
 
             <div>
-              <h4 className="text-lg font-bold mb-8 text-hanke-red">产品中心</h4>
+              <h4 className="text-lg font-bold mb-8 text-hanke-red">{t("products", "产品中心")}</h4>
               <ul className="space-y-4 text-gray-400 text-sm">
-                {categories.filter((cat) => cat !== "全部").map((cat) => (
-                  <li key={cat}>
-                    <button onClick={() => { setCurrentPage("products"); setActiveCategory(cat); window.scrollTo(0,0); }} className="hover:text-white transition-colors">{cat}</button>
+                {categories.map((cat) => (
+                  <li key={ltext(cat)}>
+                    <button onClick={() => { setCurrentPage("products"); setActiveCategory(cat); window.scrollTo(0,0); }} className="hover:text-white transition-colors">{ltext(cat)}</button>
                   </li>
                 ))}
               </ul>
