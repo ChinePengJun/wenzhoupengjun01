@@ -395,129 +395,206 @@ export default function AdminApp() {
     onSubmit: (e: FormEvent) => Promise<void> | void;
     submitText: string;
     target: 'new' | 'edit';
-  }) => (
-    <form onSubmit={onSubmit} className="grid gap-3">
-      <div className="grid md:grid-cols-2 gap-2">
-        <input className={inputCls} required value={value.title} onChange={(e) => onChange((v) => ({ ...v, title: e.target.value }))} placeholder="产品标题" />
-        <select className={inputCls} required value={value.categoryId} onChange={(e) => onChange((v) => ({ ...v, categoryId: e.target.value }))}>
-          <option value="">选择分类</option>
-          {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
-      </div>
-      <div className="grid md:grid-cols-3 gap-2">
-        <input className={inputCls} required value={value.price} onChange={(e) => onChange((v) => ({ ...v, price: e.target.value }))} placeholder="价格（US$0.2-0.4）" />
-        <input className={inputCls} value={value.moq} onChange={(e) => onChange((v) => ({ ...v, moq: e.target.value }))} placeholder="起订量" />
-        <input className={inputCls} value={value.videoUrl} onChange={(e) => onChange((v) => ({ ...v, videoUrl: e.target.value }))} placeholder="详情视频 URL" />
-      </div>
-      <input className={inputCls} required value={value.img} onChange={(e) => onChange((v) => ({ ...v, img: e.target.value }))} placeholder="主图 URL" />
-      <div className="grid md:grid-cols-2 gap-2 text-xs text-slate-500">
-        <label>上传主图<input type="file" accept="image/*" className="block mt-1" onChange={(e) => e.target.files?.[0] && uploadAndSetMainImage(e.target.files[0], target)} /></label>
-        <label>上传视频<input type="file" accept="video/*" className="block mt-1" onChange={(e) => e.target.files?.[0] && uploadAndSetVideo(e.target.files[0], target)} /></label>
-      </div>
-      <input className={inputCls} value={value.thumbnails} onChange={(e) => onChange((v) => ({ ...v, thumbnails: e.target.value }))} placeholder="详情缩略图 URL（多个用逗号分隔）" />
-      <div className="text-xs text-slate-500">
-        上传详情缩略图（可多选）
-        <input type="file" accept="image/*" multiple className="block mt-1" onChange={(e) => e.target.files && uploadAndAppendImages(e.target.files, target, 'thumbnails')} />
-      </div>
-      <textarea className={inputCls} rows={2} value={value.description} onChange={(e) => onChange((v) => ({ ...v, description: e.target.value }))} placeholder="产品描述" />
-      <textarea className={inputCls} rows={4} value={value.specs} onChange={(e) => onChange((v) => ({ ...v, specs: e.target.value }))} placeholder='规格 JSON，例如 {"材质":"PET"}' />
-      <textarea className={inputCls} rows={4} value={value.tiers} onChange={(e) => onChange((v) => ({ ...v, tiers: e.target.value }))} placeholder='价格阶梯 JSON，例如 [{"range":"1000-3000","price":"US$0.2"}]' />
-      <textarea className={inputCls} rows={6} value={value.detailContent} onChange={(e) => onChange((v) => ({ ...v, detailContent: e.target.value }))} placeholder='图文详情 JSON，示例：[{"image":"/uploads/a.jpg","title":"工艺说明","text":"可定制LOGO"}]' />
-      <div className="text-xs text-slate-500">
-        上传图文详情图片（可多选）
-        <input type="file" accept="image/*" multiple className="block mt-1" onChange={(e) => e.target.files && uploadAndAppendImages(e.target.files, target, 'detailContent')} />
-      </div>
-      <button className={`${btnCls} w-fit`} type="submit">{submitText}</button>
-    </form>
-  );
+  }) => {
+    const [step, setStep] = useState<'basic' | 'inventory' | 'detail'>('basic');
+
+    return (
+      <form onSubmit={onSubmit} className="space-y-4">
+        <div className="border-b border-slate-200 flex gap-6 text-sm">
+          {[
+            { key: 'basic', label: '基础信息' },
+            { key: 'inventory', label: '规格库存' },
+            { key: 'detail', label: '商品详情' },
+          ].map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setStep(tab.key as 'basic' | 'inventory' | 'detail')}
+              className={`pb-3 ${step === tab.key ? 'text-blue-600 border-b-2 border-blue-600 font-semibold' : 'text-slate-500'}`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {step === 'basic' && (
+          <div className="grid md:grid-cols-2 gap-3">
+            <input className={inputCls} required value={value.title} onChange={(e) => onChange((v) => ({ ...v, title: e.target.value }))} placeholder="商品名称" />
+            <select className={inputCls} required value={value.categoryId} onChange={(e) => onChange((v) => ({ ...v, categoryId: e.target.value }))}>
+              <option value="">商品分类</option>
+              {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+            <input className={inputCls} required value={value.moq} onChange={(e) => onChange((v) => ({ ...v, moq: e.target.value }))} placeholder="单位 / 起订量" />
+            <input className={inputCls} value={value.videoUrl} onChange={(e) => onChange((v) => ({ ...v, videoUrl: e.target.value }))} placeholder="视频 URL" />
+            <input className={`${inputCls} md:col-span-2`} required value={value.img} onChange={(e) => onChange((v) => ({ ...v, img: e.target.value }))} placeholder="商品主图 URL" />
+            <div className="text-xs text-slate-500">上传主图<input type="file" accept="image/*" className="block mt-1" onChange={(e) => e.target.files?.[0] && uploadAndSetMainImage(e.target.files[0], target)} /></div>
+            <div className="text-xs text-slate-500">上传视频<input type="file" accept="video/*" className="block mt-1" onChange={(e) => e.target.files?.[0] && uploadAndSetVideo(e.target.files[0], target)} /></div>
+            <textarea className={`${inputCls} md:col-span-2`} rows={3} value={value.description} onChange={(e) => onChange((v) => ({ ...v, description: e.target.value }))} placeholder="商品描述" />
+          </div>
+        )}
+
+        {step === 'inventory' && (
+          <div className="grid md:grid-cols-3 gap-3">
+            <input className={inputCls} required value={value.price} onChange={(e) => onChange((v) => ({ ...v, price: e.target.value }))} placeholder="售价" />
+            <input className={inputCls} value={value.thumbnails} onChange={(e) => onChange((v) => ({ ...v, thumbnails: e.target.value }))} placeholder="缩略图 URL（逗号分隔）" />
+            <div className="text-xs text-slate-500">上传缩略图<input type="file" accept="image/*" multiple className="block mt-1" onChange={(e) => e.target.files && uploadAndAppendImages(e.target.files, target, 'thumbnails')} /></div>
+            <textarea className={`${inputCls} md:col-span-3`} rows={6} value={value.tiers} onChange={(e) => onChange((v) => ({ ...v, tiers: e.target.value }))} placeholder='价格库存 JSON，例如 [{"range":"1-10","price":"10"}]' />
+          </div>
+        )}
+
+        {step === 'detail' && (
+          <div className="grid gap-3">
+            <textarea className={inputCls} rows={8} value={value.specs} onChange={(e) => onChange((v) => ({ ...v, specs: e.target.value }))} placeholder='商品参数 JSON，例如 {"材质":"PET"}' />
+            <textarea className={inputCls} rows={8} value={value.detailContent} onChange={(e) => onChange((v) => ({ ...v, detailContent: e.target.value }))} placeholder='图文详情 JSON，例如 [{"image":"/uploads/a.jpg","title":"工艺","text":"说明"}]' />
+            <div className="text-xs text-slate-500">上传图文详情图片<input type="file" accept="image/*" multiple className="block mt-1" onChange={(e) => e.target.files && uploadAndAppendImages(e.target.files, target, 'detailContent')} /></div>
+          </div>
+        )}
+
+        <div className="flex gap-2">
+          <button className="rounded-lg bg-blue-600 px-4 py-2 text-white text-sm" type="submit">{submitText}</button>
+          <button type="button" className="rounded-lg border border-slate-300 px-4 py-2 text-sm" onClick={() => setStep('basic')}>返回基础</button>
+        </div>
+      </form>
+    );
+  };
+
+  const [productView, setProductView] = useState<'list' | 'create' | 'edit'>('list');
+
+  useEffect(() => {
+    if (editingProductId) setProductView('edit');
+  }, [editingProductId]);
 
   return (
     <div className="min-h-screen bg-slate-100">
-      <div className="max-w-[1400px] mx-auto p-4 md:p-6">
-        <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-4">
-          <aside className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm h-fit lg:sticky lg:top-4">
-            <div className="mb-4">
-              <h1 className="text-lg font-black text-slate-900">管理控制台</h1>
-              <p className="text-xs text-slate-500">更直观的分类与产品管理</p>
+      <div className="flex min-h-screen">
+        <aside className="w-16 bg-slate-900 text-white flex flex-col items-center py-3 gap-2">
+          {['主页','用户','订单','商品','营销','分销','客服','财务','内容','装修','应用','设置','维护'].map((name, idx) => (
+            <button key={name} className={`w-full py-2 text-xs ${idx===3 ? 'bg-blue-600' : 'text-slate-200 hover:bg-slate-700'}`}>{name}</button>
+          ))}
+        </aside>
+
+        <aside className="w-44 bg-white border-r border-slate-200">
+          <div className="h-12 px-4 flex items-center font-semibold border-b border-slate-200">商品统计</div>
+          <div className="py-2 text-sm">
+            {[
+              { key: 'products', label: '商品管理' },
+              { key: 'categories', label: '商品分类' },
+              { key: 'settings', label: '站点设置' },
+              { key: 'languages', label: '多语种' },
+            ].map((item) => (
+              <button key={item.key} onClick={() => setActiveTab(item.key as AdminTab)} className={`w-full text-left px-6 py-3 ${activeTab===item.key ? 'bg-blue-50 text-blue-600 border-l-2 border-blue-600' : 'hover:bg-slate-50'}`}>
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </aside>
+
+        <main className="flex-1">
+          <div className="h-12 bg-white border-b border-slate-200 px-4 flex items-center justify-between text-sm">
+            <div className="text-slate-500">商品 / {activeTab === 'products' ? '商品管理' : activeTab === 'categories' ? '商品分类' : activeTab === 'languages' ? '多语种' : '站点设置'}</div>
+            <div className="flex gap-2">
+              <button className="rounded border px-2 py-1" onClick={() => reload(token)}>刷新</button>
+              <button className="rounded border px-2 py-1 text-rose-600" onClick={onLogout}>退出</button>
             </div>
-            <div className="space-y-1">
-              {[
-                { key: 'overview', label: '总览', icon: Grid3X3 },
-                { key: 'products', label: '产品管理', icon: PlusCircle },
-                { key: 'categories', label: '分类管理', icon: FolderTree },
-                { key: 'settings', label: '站点设置', icon: Settings },
-                { key: 'languages', label: '多语种', icon: Languages },
-              ].map((item) => {
-                const Icon = item.icon;
-                const active = activeTab === item.key;
-                return (
-                  <button key={item.key} onClick={() => setActiveTab(item.key as AdminTab)} className={`w-full flex items-center gap-2 rounded-xl px-3 py-2 text-sm transition ${active ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>
-                    <Icon size={16} /><span>{item.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-            <div className="mt-4 pt-4 border-t border-slate-100 space-y-2">
-              <button className="w-full rounded-xl px-3 py-2 text-sm border border-slate-200 text-slate-700 hover:bg-slate-50 flex items-center justify-center gap-2" onClick={() => reload(token)}><RefreshCw size={14} /> 刷新数据</button>
-              <button className="w-full rounded-xl px-3 py-2 text-sm bg-rose-50 text-rose-600 hover:bg-rose-100 flex items-center justify-center gap-2" onClick={onLogout}><LogOut size={14} /> 退出登录</button>
-            </div>
-          </aside>
+          </div>
 
-          <main className="space-y-4">
-            {error && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-600">错误：{error}</p>}
+          <div className="p-4 space-y-4">
+            {error && <p className="rounded bg-red-50 px-3 py-2 text-sm text-red-600">错误：{error}</p>}
 
-            <section className="grid grid-cols-2 md:grid-cols-5 gap-3">
-              <div className={cardCls}><p className="text-xs text-slate-500">分类总数</p><p className="text-2xl font-black">{stats?.categoryCount ?? categories.length}</p></div>
-              <div className={cardCls}><p className="text-xs text-slate-500">产品总数</p><p className="text-2xl font-black">{stats?.productCount ?? products.length}</p></div>
-              <div className={cardCls}><p className="text-xs text-slate-500">上架产品</p><p className="text-2xl font-black">{activeProducts}</p></div>
-              <div className={cardCls}><p className="text-xs text-slate-500">管理用户</p><p className="text-2xl font-black">{stats?.managedUserCount ?? 0}</p></div>
-              <div className={cardCls}><p className="text-xs text-slate-500">已发布公告</p><p className="text-2xl font-black">{stats?.publishedAnnouncementCount ?? 0}</p></div>
-            </section>
+            {activeTab === 'products' && (
+              <section className="bg-white border border-slate-200 rounded p-4 space-y-4">
+                <div className="flex items-center gap-2 text-sm border-b border-slate-200 pb-2">
+                  <button onClick={() => setProductView('list')} className={`px-3 py-1 rounded ${productView==='list' ? 'bg-blue-50 text-blue-600' : ''}`}>商品管理</button>
+                  <button onClick={() => { setProductView('create'); setEditingProductId(null); }} className={`px-3 py-1 rounded ${productView==='create' ? 'bg-blue-50 text-blue-600' : ''}`}>添加商品</button>
+                  {editingProductId && <button className="px-3 py-1 rounded bg-blue-50 text-blue-600">商品ID: {editingProductId}</button>}
+                </div>
 
-            {activeTab === 'overview' && <section className={cardCls}><h2 className="text-lg font-bold mb-3">快速入口</h2><div className="text-sm text-slate-500">可从左侧进入产品、分类、站点设置、多语种模块。</div></section>}
+                {productView === 'list' && (
+                  <>
+                    <div className="grid md:grid-cols-4 gap-2 text-sm">
+                      <input className={inputCls} value={productKeyword} onChange={(e) => setProductKeyword(e.target.value)} placeholder="请输入商品名称关键词/ID" />
+                      <select className={inputCls} value={productFilterCategory} onChange={(e) => setProductFilterCategory(e.target.value)}>
+                        <option value="all">全部分类</option>
+                        {categories.map((c) => <option key={c.id} value={String(c.id)}>{c.name}</option>)}
+                      </select>
+                      <button className="rounded bg-blue-600 text-white px-3 py-2">查询</button>
+                      <button className="rounded border px-3 py-2" onClick={() => { setProductKeyword(''); setProductFilterCategory('all'); }}>重置</button>
+                    </div>
 
-            {activeTab === 'settings' && (
-              <section className={cardCls}>
-                <h2 className="text-lg font-bold mb-3">站点信息设置（影响前台）</h2>
-                <form onSubmit={saveSiteSettings} className="grid md:grid-cols-2 gap-2 mb-2">
-                  <input className={inputCls} value={siteSettings.companyName} onChange={(e) => setSiteSettings((v) => ({ ...v, companyName: e.target.value }))} placeholder="公司名称" />
-                  <input className={inputCls} value={siteSettings.phone} onChange={(e) => setSiteSettings((v) => ({ ...v, phone: e.target.value }))} placeholder="联系电话" />
-                  <input className={inputCls} value={siteSettings.email} onChange={(e) => setSiteSettings((v) => ({ ...v, email: e.target.value }))} placeholder="联系邮箱" />
-                  <input className={inputCls} value={siteSettings.address} onChange={(e) => setSiteSettings((v) => ({ ...v, address: e.target.value }))} placeholder="公司地址" />
-                  <input className={`${inputCls} md:col-span-2`} value={siteSettings.copyright} onChange={(e) => setSiteSettings((v) => ({ ...v, copyright: e.target.value }))} placeholder="版权文案" />
-                  <button className={`${btnCls} w-fit`} type="submit">保存站点信息</button>
-                </form>
-              </section>
-            )}
+                    <div className="flex gap-2 text-sm">
+                      <button className="rounded bg-blue-600 text-white px-3 py-2" onClick={() => setProductView('create')}>添加商品</button>
+                      <button className="rounded border px-3 py-2">批量修改</button>
+                      <button className="rounded border px-3 py-2">数据导出</button>
+                    </div>
 
+                    <div className="overflow-auto border border-slate-200 rounded">
+                      <table className="min-w-full text-sm">
+                        <thead className="bg-slate-100 text-slate-600">
+                          <tr>
+                            <th className="px-3 py-2 text-left">商品ID</th>
+                            <th className="px-3 py-2 text-left">商品图</th>
+                            <th className="px-3 py-2 text-left">商品名称</th>
+                            <th className="px-3 py-2 text-left">商品分类</th>
+                            <th className="px-3 py-2 text-left">售价</th>
+                            <th className="px-3 py-2 text-left">库存</th>
+                            <th className="px-3 py-2 text-left">状态</th>
+                            <th className="px-3 py-2 text-left">操作</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredProducts.map((p) => (
+                            <tr key={p.id} className="border-t border-slate-100">
+                              <td className="px-3 py-2">{p.id}</td>
+                              <td className="px-3 py-2"><img src={p.img} alt={p.title} className="w-10 h-10 object-cover rounded" /></td>
+                              <td className="px-3 py-2 max-w-sm truncate">{p.title}</td>
+                              <td className="px-3 py-2">{p.category}</td>
+                              <td className="px-3 py-2">{p.price}</td>
+                              <td className="px-3 py-2">{(p.tiers && p.tiers.length) ? p.tiers.length : '-'}</td>
+                              <td className="px-3 py-2">{p.status === 'active' ? '上架' : '下架'}</td>
+                              <td className="px-3 py-2 space-x-2">
+                                <button className="text-blue-600" onClick={() => startEditProduct(p)}>编辑</button>
+                                <button className="text-indigo-600" onClick={() => toggleProductStatus(p)}>{p.status === 'active' ? '下架' : '上架'}</button>
+                                <button className="text-rose-600" onClick={() => removeProduct(p.id)}>删除</button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                )}
 
-            {activeTab === 'languages' && (
-              <section className={cardCls}>
-                <h2 className="text-lg font-bold mb-3">多语种管理</h2>
-                <form onSubmit={saveLanguageSettings} className="grid md:grid-cols-2 gap-2">
-                  <input className={inputCls} value={siteSettings.defaultLanguage} onChange={(e) => setSiteSettings((v) => ({ ...v, defaultLanguage: e.target.value }))} placeholder="默认语言（如 zh）" />
-                  <input className={inputCls} value={siteSettings.supportedLanguages} onChange={(e) => setSiteSettings((v) => ({ ...v, supportedLanguages: e.target.value }))} placeholder="支持语言（逗号分隔，如 zh,en,ja）" />
-                  <textarea className={`${inputCls} md:col-span-2`} rows={12} value={siteSettings.i18nMessages} onChange={(e) => setSiteSettings((v) => ({ ...v, i18nMessages: e.target.value }))} placeholder='多语种文案 JSON，例如 {"zh":{"home":"首页"},"en":{"home":"Home"}}' />
-                  <div className="md:col-span-2 text-xs text-slate-500">建议至少提供键：home/about/products/contact/contactInfo/address/phone/email/faq/keyAttributes/richDetails。</div>
-                  <button className={`${btnCls} w-fit`} type="submit">保存多语种配置</button>
-                </form>
+                {productView === 'create' && (
+                  <div>
+                    <div className="text-xl font-semibold mb-3">添加商品</div>
+                    <ProductForm value={newProduct} onChange={setNewProduct} onSubmit={createProduct} submitText="保存并继续" target="new" />
+                  </div>
+                )}
+
+                {productView === 'edit' && editingProductId && (
+                  <div>
+                    <div className="text-xl font-semibold mb-3">编辑商品</div>
+                    <ProductForm value={editingProduct} onChange={setEditingProduct} onSubmit={saveEditProduct} submitText="保存" target="edit" />
+                    <button className="mt-3 rounded border px-3 py-2 text-sm" onClick={() => { setEditingProductId(null); setProductView('list'); }}>返回列表</button>
+                  </div>
+                )}
               </section>
             )}
 
             {activeTab === 'categories' && (
-              <section className={cardCls}>
-                <h2 className="text-lg font-bold mb-3">分类管理</h2>
-                <form onSubmit={createCategory} className="flex flex-col md:flex-row gap-2 mb-4">
-                  <input className={inputCls} required value={categoryName} onChange={(e) => setCategoryName(e.target.value)} placeholder="新分类名称" />
-                  <button className={btnCls} type="submit">新增分类</button>
+              <section className="bg-white border border-slate-200 rounded p-4">
+                <h2 className="text-lg font-semibold mb-3">商品分类</h2>
+                <form onSubmit={createCategory} className="flex gap-2 mb-4">
+                  <input className={inputCls} value={categoryName} onChange={(e) => setCategoryName(e.target.value)} placeholder="新分类名称" required />
+                  <button className="rounded bg-blue-600 text-white px-3">新增</button>
                 </form>
-                <div className="grid md:grid-cols-2 gap-3">
+                <div className="space-y-2">
                   {categories.map((c) => (
-                    <div key={c.id} className="rounded-xl border border-slate-200 p-3 flex items-center justify-between">
-                      <div><div className="font-semibold">{c.name}</div><div className="text-xs text-slate-500">分类 ID: {c.id}</div></div>
+                    <div key={c.id} className="flex items-center justify-between border border-slate-200 rounded px-3 py-2">
+                      <div>{c.name} <span className="text-xs text-slate-400">ID:{c.id}</span></div>
                       <div className="space-x-2">
-                        <button className="rounded-lg bg-slate-100 px-2 py-1 text-sm" onClick={() => updateCategory(c.id, c.name)}>重命名</button>
-                        <button className="rounded-lg bg-red-50 text-red-600 px-2 py-1 text-sm" onClick={() => removeCategory(c.id)}>删除</button>
+                        <button className="text-blue-600" onClick={() => updateCategory(c.id, c.name)}>重命名</button>
+                        <button className="text-rose-600" onClick={() => removeCategory(c.id)}>删除</button>
                       </div>
                     </div>
                   ))}
@@ -525,57 +602,33 @@ export default function AdminApp() {
               </section>
             )}
 
-            {activeTab === 'products' && (
-              <section className="space-y-4">
-                <div className={cardCls}>
-                  <h2 className="text-lg font-bold mb-3">新增产品（完整信息）</h2>
-                  <ProductForm value={newProduct} onChange={setNewProduct} onSubmit={createProduct} submitText="新增产品" target="new" />
-                </div>
-
-                {editingProductId && (
-                  <div className={cardCls}>
-                    <div className="flex items-center justify-between mb-3">
-                      <h2 className="text-lg font-bold">编辑产品 #{editingProductId}</h2>
-                      <button className="rounded-lg bg-slate-100 px-2 py-1 text-sm" onClick={() => setEditingProductId(null)}>取消编辑</button>
-                    </div>
-                    <ProductForm value={editingProduct} onChange={setEditingProduct} onSubmit={saveEditProduct} submitText="保存修改" target="edit" />
-                  </div>
-                )}
-
-                <div className={cardCls}>
-                  <h2 className="text-lg font-bold mb-3">产品列表（卡片视图）</h2>
-                  <div className="grid md:grid-cols-[1fr_220px] gap-2 mb-4">
-                    <div className="relative"><Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" /><input className={`${inputCls} pl-9`} value={productKeyword} onChange={(e) => setProductKeyword(e.target.value)} placeholder="搜索产品标题/分类" /></div>
-                    <select className={inputCls} value={productFilterCategory} onChange={(e) => setProductFilterCategory(e.target.value)}>
-                      <option value="all">全部分类</option>
-                      {categories.map((c) => <option key={c.id} value={String(c.id)}>{c.name}</option>)}
-                    </select>
-                  </div>
-
-                  <div className="space-y-3">
-                    {filteredProducts.map((p) => (
-                      <div key={p.id} className="rounded-xl border border-slate-200 p-3 md:p-4 flex flex-col md:flex-row md:items-center gap-3 md:gap-4">
-                        <img src={p.img} alt={p.title} className="w-full md:w-24 h-24 object-cover rounded-lg border border-slate-200" referrerPolicy="no-referrer" />
-                        <div className="flex-1 min-w-0">
-                          <div className="font-semibold truncate">{p.title}</div>
-                          <div className="text-xs text-slate-500 mt-1">分类：{p.category} · 价格：{p.price} · MOQ：{p.moq}</div>
-                          <div className="text-xs text-slate-400 mt-1">缩略图 {p.thumbnails?.length || 0} · 视频 {p.videoUrl ? '1' : '0'} · 图文详情 {p.detailContent?.length || 0}</div>
-                        </div>
-                        <div className="flex flex-wrap gap-2 md:justify-end">
-                          <span className={`rounded-full px-2 py-1 text-xs ${p.status === 'active' ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500'}`}>{p.status}</span>
-                          <button className="rounded-lg bg-slate-100 px-2 py-1 text-sm flex items-center gap-1" onClick={() => startEditProduct(p)}><Pencil size={14} />编辑</button>
-                          <button className="rounded-lg bg-indigo-50 text-indigo-700 px-2 py-1 text-sm" onClick={() => toggleProductStatus(p)}>{p.status === 'active' ? '下架' : '上架'}</button>
-                          <button className="rounded-lg bg-red-50 text-red-600 px-2 py-1 text-sm" onClick={() => removeProduct(p.id)}>删除</button>
-                        </div>
-                      </div>
-                    ))}
-                    {!filteredProducts.length && <div className="text-sm text-slate-500">暂无匹配产品。</div>}
-                  </div>
-                </div>
+            {activeTab === 'settings' && (
+              <section className="bg-white border border-slate-200 rounded p-4">
+                <h2 className="text-lg font-semibold mb-3">站点设置</h2>
+                <form onSubmit={saveSiteSettings} className="grid md:grid-cols-2 gap-2">
+                  <input className={inputCls} value={siteSettings.companyName} onChange={(e) => setSiteSettings((v) => ({ ...v, companyName: e.target.value }))} placeholder="公司名称" />
+                  <input className={inputCls} value={siteSettings.phone} onChange={(e) => setSiteSettings((v) => ({ ...v, phone: e.target.value }))} placeholder="联系电话" />
+                  <input className={inputCls} value={siteSettings.email} onChange={(e) => setSiteSettings((v) => ({ ...v, email: e.target.value }))} placeholder="邮箱" />
+                  <input className={inputCls} value={siteSettings.address} onChange={(e) => setSiteSettings((v) => ({ ...v, address: e.target.value }))} placeholder="地址" />
+                  <input className={`${inputCls} md:col-span-2`} value={siteSettings.copyright} onChange={(e) => setSiteSettings((v) => ({ ...v, copyright: e.target.value }))} placeholder="版权" />
+                  <button className="rounded bg-blue-600 text-white px-3 py-2 w-fit">保存</button>
+                </form>
               </section>
             )}
-          </main>
-        </div>
+
+            {activeTab === 'languages' && (
+              <section className="bg-white border border-slate-200 rounded p-4">
+                <h2 className="text-lg font-semibold mb-3">多语种管理</h2>
+                <form onSubmit={saveLanguageSettings} className="grid md:grid-cols-2 gap-2">
+                  <input className={inputCls} value={siteSettings.defaultLanguage} onChange={(e) => setSiteSettings((v) => ({ ...v, defaultLanguage: e.target.value }))} placeholder="默认语言" />
+                  <input className={inputCls} value={siteSettings.supportedLanguages} onChange={(e) => setSiteSettings((v) => ({ ...v, supportedLanguages: e.target.value }))} placeholder="支持语言 zh,en" />
+                  <textarea className={`${inputCls} md:col-span-2`} rows={14} value={siteSettings.i18nMessages} onChange={(e) => setSiteSettings((v) => ({ ...v, i18nMessages: e.target.value }))} placeholder="多语文案 JSON" />
+                  <button className="rounded bg-blue-600 text-white px-3 py-2 w-fit">保存多语种</button>
+                </form>
+              </section>
+            )}
+          </div>
+        </main>
       </div>
     </div>
   );
