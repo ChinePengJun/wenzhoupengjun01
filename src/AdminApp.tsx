@@ -124,6 +124,7 @@ export default function AdminApp() {
   const [error, setError] = useState('');
   const [productKeyword, setProductKeyword] = useState('');
   const [productFilterCategory, setProductFilterCategory] = useState('all');
+  const [productView, setProductView] = useState<'list' | 'create' | 'edit'>('list');
   const [siteSettings, setSiteSettings] = useState({
     companyName: '云浠（温州）包装有限公司',
     address: '浙江省温州龙港市启源路2356-2400',
@@ -457,8 +458,6 @@ export default function AdminApp() {
       </form>
     );
   };
-
-  const [productView, setProductView] = useState<'list' | 'create' | 'edit'>('list');
 
   useEffect(() => {
     if (editingProductId) setProductView('edit');
