@@ -1,0 +1,47 @@
+{
+  "entities": {
+    "Product": {
+      "title": "Product",
+      "description": "A product sold by Yunxi Packaging",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "description": "Product title" },
+        "category": { "type": "string", "description": "Product category" },
+        "price": { "type": "string", "description": "Price range" },
+        "img": { "type": "string", "description": "Image URL" },
+        "moq": { "type": "string", "description": "Minimum order quantity" },
+        "tiers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "range": { "type": "string" },
+              "price": { "type": "string" }
+            }
+          }
+        },
+        "specs": {
+          "type": "object",
+          "properties": {
+            "color": { "type": "string" },
+            "size": { "type": "string" },
+            "material": { "type": "string" },
+            "type": { "type": "string" },
+            "feature": { "type": "string" },
+            "printing": { "type": "string" },
+            "shape": { "type": "string" },
+            "brand": { "type": "string" }
+          }
+        },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "category", "price", "img"]
+    }
+  },
+  "firestore": {
+    "/products": {
+      "schema": "Product",
+      "description": "Collection of products"
+    }
+  }
+}
