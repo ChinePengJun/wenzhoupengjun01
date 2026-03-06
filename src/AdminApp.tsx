@@ -371,6 +371,11 @@ export default function AdminApp() {
     }
   }
 
+
+  useEffect(() => {
+    if (editingProductId) setProductView('edit');
+  }, [editingProductId]);
+
   if (!token) {
     return (
       <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
@@ -458,11 +463,6 @@ export default function AdminApp() {
       </form>
     );
   };
-
-  useEffect(() => {
-    if (editingProductId) setProductView('edit');
-  }, [editingProductId]);
-
   return (
     <div className="min-h-screen bg-slate-100">
       <div className="flex min-h-screen">
